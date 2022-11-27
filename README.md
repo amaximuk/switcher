@@ -1,0 +1,2 @@
+# switcher
+Tray icon switcher
