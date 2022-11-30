@@ -156,7 +156,7 @@ void switcher::thread_finished()
     {
         qDebug() << "!result";
         emit on_error();
-        emit on_state_changed(state::ERROR);
+        emit on_state_changed(state::ERROR_);
     }
     else
     {

@@ -1,10 +1,10 @@
 <RCC>
     <qresource prefix="/">
-        <file>images/f.png</file>
         <file>images/error.png</file>
-        <file>images/p.png</file>
         <file>images/switch.gif</file>
         <file>images/update.gif</file>
-        <file>images/u.png</file>
+        <file>images/fastlab.png</file>
+        <file>images/postwin.png</file>
+        <file>images/unknown.png</file>
     </qresource>
 </RCC>

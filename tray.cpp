@@ -14,9 +14,9 @@
 tray::tray(QObject *parent) : QObject(parent)
 {
     fastlabAction = new QAction("&Fastlab");
-    fastlabAction->setIcon(QIcon(":/images/f.png"));
+    fastlabAction->setIcon(QIcon(":/images/fastlab.png"));
     postwinAction = new QAction("&Postwin");
-    postwinAction->setIcon(QIcon(":/images/p.png"));
+    postwinAction->setIcon(QIcon(":/images/postwin.png"));
     refreshAction = new QAction("&Refresh");
     quitAction = new QAction("&Quit");
 
@@ -32,7 +32,8 @@ tray::tray(QObject *parent) : QObject(parent)
 
     trayIcon = new QSystemTrayIcon();
     trayIcon->setContextMenu(trayIconMenu);
-    trayIcon->setIcon(QIcon(":/images/f.png"));
+    trayIcon->setIcon(QIcon(":/images/fastlab.png"));
+    trayIcon->setToolTip("127.0.0.1");
     trayIcon->show();
 
     gif_update_ = new QMovie(":/images/update.gif");
@@ -78,7 +79,7 @@ void tray::fastlab()
 //    if (reply == QMessageBox::Yes)
 //    {
 
-////        trayIcon->setIcon(QIcon(":/images/f.png"));
+////        trayIcon->setIcon(QIcon(":/images/fastlab.png"));
 //    }
 //    else
 //    {
@@ -100,7 +101,7 @@ void tray::postwin()
 //    reply = QMessageBox::question(nullptr, "Switch to Postwin", "Are you shure?", QMessageBox::Yes | QMessageBox::No);
 //    if (reply == QMessageBox::Yes)
 //    {
-////        trayIcon->setIcon(QIcon(":/images/f.png"));
+////        trayIcon->setIcon(QIcon(":/images/fastlab.png"));
 //    }
 //    else
 //    {
@@ -108,7 +109,7 @@ void tray::postwin()
 //    }
 //    switcher_->switch_to_fastlab_async();
 //    gif->stop();
-//    trayIcon->setIcon(QIcon(":/images/p.png"));
+//    trayIcon->setIcon(QIcon(":/images/postwin.png"));
 }
 
 void tray::refresh()
@@ -147,9 +148,9 @@ void tray::switcher_state_changed(switcher::state st)
     gif_update_->stop();
 
     if (st == switcher::state::FASTLAB)
-        trayIcon->setIcon(QIcon(":/images/f.png"));
+        trayIcon->setIcon(QIcon(":/images/error.png"));
     else if (st == switcher::state::POSTWIN)
-        trayIcon->setIcon(QIcon(":/images/p.png"));
+        trayIcon->setIcon(QIcon(":/images/u.png"));
     else if (st == switcher::state::UNKNOWN)
         trayIcon->setIcon(QIcon(":/images/u.png"));
     else
