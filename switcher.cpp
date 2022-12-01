@@ -1,18 +1,27 @@
 #include <QMutexLocker>
 #include <QDebug>
+
 #include "switcher.h"
+
+#define DEBUG_SWITCH_TO_FASTLAB_SECONDS 3
+#define DEBUG_SWITCH_TO_POSTWIN_SECONDS 3
+#define DEBUG_UPDATE_SECONDS 3
 
 switcher::switcher()
 {
     current_process_ = process::IDLE;
     thread_exit_requested_ = false;
-    locker_.reset(new QMutex());
+    ok_ = true;
+    ok2_ = switcher::state::ERROR_;
+
 
     connect(&future_watcher_, &QFutureWatcher<void>::finished, this,  &switcher::thread_finished);
 }
 
 void switcher::switch_to_fastlab_async()
 {
+    QMutexLocker locker(&access_mutex_);
+
     qDebug() << "switch_to_fastlab_async";
     if (current_process_ == process::IDLE)
     {
@@ -39,6 +48,8 @@ void switcher::switch_to_fastlab_async()
 
 void switcher::switch_to_postwin_async()
 {
+    QMutexLocker locker(&access_mutex_);
+
     qDebug() << "switch_to_postwin_async";
     if (current_process_ == process::IDLE)
     {
@@ -65,17 +76,19 @@ void switcher::switch_to_postwin_async()
 
 void switcher::update_state_async()
 {
+    QMutexLocker locker(&access_mutex_);
+
     qDebug() << "update_state_async";
     if (current_process_ == process::IDLE)
     {
-        qDebug() << "was IDLE, SWITCHING_TO_POSTWIN";
-        current_process_ = process::SWITCHING_TO_POSTWIN;
-        future_ = QtConcurrent::run(this, &switcher::switch_to_postwin_internel);
+        qDebug() << "was IDLE, UPDATING";
+        current_process_ = process::UPDATING;
+        future_ = QtConcurrent::run(this, &switcher::update_state_internel);
         future_watcher_.setFuture(future_);
     }
-    else if (current_process_ == process::SWITCHING_TO_POSTWIN)
+    else if (current_process_ == process::UPDATING)
     {
-        qDebug() << "nothing to do, already SWITCHING_TO_POSTWIN";
+        qDebug() << "nothing to do, already UPDATING";
     }
     else if (current_process_ == process::CANCELING)
     {
@@ -91,14 +104,15 @@ void switcher::update_state_async()
 
 void switcher::cancel()
 {
+    QMutexLocker locker(&access_mutex_);
+
     qDebug() << "cancel";
-    //QMutexLocker locker(locker_.get());
-    if (current_process_ == process::IDLE)
-    {
-        // все равно вызвать для общности и emit
-        qDebug() << "nothing to do, already IDLE";
-    }
-    else
+//    if (current_process_ == process::IDLE)
+//    {
+//        // все равно вызвать для общности и emit
+//        qDebug() << "nothing to do, already IDLE";
+//    }
+//    else
     {
         thread_exit_requested_ = true;
         future_.waitForFinished();
@@ -107,43 +121,53 @@ void switcher::cancel()
     current_process_ = process::IDLE;
 }
 
+void switcher::set_result(bool ok)
+{
+    ok_ = ok;
+}
+
+void switcher::set_refresh_result(switcher::state ok2)
+{
+    ok2_ = ok2;
+}
+
 bool switcher::switch_to_fastlab_internel()
 {
     qDebug() << "switch_to_fastlab_internel";
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < DEBUG_SWITCH_TO_FASTLAB_SECONDS; i++)
     {
         qDebug() << "f" << i;
         if (thread_exit_requested_)
             break;
         QThread::sleep(1);
     }
-    return true;
+    return ok_;
 }
 
 bool switcher::switch_to_postwin_internel()
 {
     qDebug() << "switch_to_postwin_internel";
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < DEBUG_SWITCH_TO_POSTWIN_SECONDS; i++)
     {
         qDebug() << "p" << i;
         if (thread_exit_requested_)
             break;
         QThread::sleep(1);
     }
-    return true;
+    return ok_;
 }
 
 bool switcher::update_state_internel()
 {
     qDebug() << "update_state_internel";
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < DEBUG_UPDATE_SECONDS; i++)
     {
         qDebug() << "u" << i;
         if (thread_exit_requested_)
             break;
         QThread::sleep(1);
     }
-    return true;
+    return ok_;
 }
 
 void switcher::thread_finished()
@@ -181,7 +205,7 @@ void switcher::thread_finished()
         {
             qDebug() << "UPDATING";
             emit on_updated();
-            emit on_state_changed(state::POSTWIN); //!!!!!!!!!! FASTLAB
+            emit on_state_changed(ok2_); //!!!!!!!!!! FASTLAB
         }
         else if (current_process_ == process::CANCELING)
         {

@@ -44,6 +44,7 @@ tray::tray(QObject *parent) : QObject(parent)
 
     switcher_.reset(new switcher());
     QObject::connect(switcher_.get(), &switcher::on_state_changed, this, &tray::switcher_state_changed);
+    QObject::connect(switcher_.get(), &switcher::ask, this, &tray::ask);
 
 //    gif = new QMovie(":/images/refresh.gif");
 //    connect(gif, &QMovie::frameChanged, this, &tray::updateIcon);
@@ -66,13 +67,19 @@ void tray::show()
 
 void tray::fastlab()
 {
+
     fastlabAction->setEnabled(false);
     postwinAction->setEnabled(false);
     refreshAction->setEnabled(false);
     gif_update_->stop();
     gif_switch_->start();
-    switcher_->switch_to_fastlab_async();
 
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(nullptr, "Switch to fastlab", "Generate error?", QMessageBox::Yes | QMessageBox::No);
+    bool ok = (reply != QMessageBox::Yes);
+    switcher_->set_result(ok);
+
+    switcher_->switch_to_fastlab_async();
 
 //    QMessageBox::StandardButton reply;
 //    reply = QMessageBox::question(nullptr, "Switch to Fastlab", "Are you shure?", QMessageBox::Yes | QMessageBox::No);
@@ -94,6 +101,12 @@ void tray::postwin()
     refreshAction->setEnabled(false);
     gif_update_->stop();
     gif_switch_->start();
+
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(nullptr, "Switch to postwin", "Generate error?", QMessageBox::Yes | QMessageBox::No);
+    bool ok = (reply != QMessageBox::Yes);
+    switcher_->set_result(ok);
+
     switcher_->switch_to_postwin_async();
 
 
@@ -119,6 +132,20 @@ void tray::refresh()
     refreshAction->setEnabled(false);
     gif_switch_->stop();
     gif_update_->start();
+
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(nullptr, "Refresh", "Generate error?", QMessageBox::Yes | QMessageBox::No);
+    bool ok = (reply != QMessageBox::Yes);
+    switcher_->set_result(ok);
+
+    QMessageBox::StandardButton reply2;
+    reply2 = QMessageBox::question(nullptr, "Refresh", "Refresh to Yes=Fastlab, No=Postwin, Abort=Unknown?", QMessageBox::Yes | QMessageBox::No | QMessageBox::Abort);
+    switcher::state ok2 = switcher::state::ERROR_;
+    if (reply2 == QMessageBox::Yes) ok2 = switcher::state::FASTLAB;
+    if (reply2 == QMessageBox::No) ok2 = switcher::state::POSTWIN;
+    if (reply2 == QMessageBox::Abort) ok2 = switcher::state::UNKNOWN;
+    switcher_->set_refresh_result(ok2);
+
     switcher_->update_state_async();
 }
 
@@ -148,11 +175,15 @@ void tray::switcher_state_changed(switcher::state st)
     gif_update_->stop();
 
     if (st == switcher::state::FASTLAB)
-        trayIcon->setIcon(QIcon(":/images/error.png"));
+        trayIcon->setIcon(QIcon(":/images/fastlab.png"));
     else if (st == switcher::state::POSTWIN)
-        trayIcon->setIcon(QIcon(":/images/u.png"));
+        trayIcon->setIcon(QIcon(":/images/postwin.png"));
     else if (st == switcher::state::UNKNOWN)
-        trayIcon->setIcon(QIcon(":/images/u.png"));
+        trayIcon->setIcon(QIcon(":/images/unknown.png"));
     else
         trayIcon->setIcon(QIcon(":/images/error.png"));
+}
+
+void tray::ask(bool& answer)
+{
 }

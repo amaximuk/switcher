@@ -47,6 +47,7 @@ private:
 
 private slots:
     void switcher_state_changed(switcher::state st);
+    void ask(bool& answer);
 
 signals:
 

@@ -30,13 +30,16 @@ private:
     };
 
 private:
-    QScopedPointer<QMutex> locker_;
+    QMutex access_mutex_;
     QAtomicInt thread_exit_requested_;
     QFuture<bool> future_;
     QFutureWatcher<void> future_watcher_;
     process current_process_;
 
     QAtomicInt cancelled_;
+
+    bool ok_;
+    switcher::state ok2_;
 
 public:
     switcher();
@@ -49,12 +52,15 @@ signals:
     void on_updated();
     void on_canceled();
     void on_error();
+    void ask(bool& answer);
 
 public:
     void switch_to_fastlab_async();
     void switch_to_postwin_async();
     void update_state_async();
     void cancel();
+    void set_result(bool ok);
+    void set_refresh_result(switcher::state ok2);
 
 private:
     bool switch_to_fastlab_internel();
