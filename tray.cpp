@@ -11,9 +11,17 @@
 #include "switcher.h"
 #include "tray.h"
 
+//#define UPDATE_IF_ERROR_MS 10000
+//#define UPDATE_IF_UNKNOWN_MS 60000
+//#define UPDATE_IF_NORMAL_MS 300000
+#define UPDATE_IF_ERROR_MS 10000
+#define UPDATE_IF_UNKNOWN_MS 20000
+#define UPDATE_IF_NORMAL_MS 30000
+
 tray::tray(QObject *parent) : QObject(parent)
 {
     pending_action_ = action::NONE;
+    state_ = switcher::state::UNKNOWN;
 
     fastlabAction = new QAction("&Fastlab");
     fastlabAction->setIcon(QIcon(":/images/fastlab.png"));
@@ -34,7 +42,7 @@ tray::tray(QObject *parent) : QObject(parent)
 
     trayIcon = new QSystemTrayIcon();
     trayIcon->setContextMenu(trayIconMenu);
-    trayIcon->setIcon(QIcon(":/images/fastlab.png"));
+    trayIcon->setIcon(QIcon(":/images/unknown.png"));
     trayIcon->setToolTip("127.0.0.1");
     trayIcon->show();
 
@@ -58,7 +66,40 @@ tray::tray(QObject *parent) : QObject(parent)
     QObject::connect(quitAction, &QAction::triggered, this, &tray::quit);
 //    QObject::connect(qApp, &QCoreApplication::aboutToQuit, this, &tray::hide);
 
+    timer_id_ = startTimer(1000);
+    update_time_ = QDateTime::currentMSecsSinceEpoch();
+}
 
+tray::~tray()
+{
+    killTimer(timer_id_);
+}
+
+void tray::timerEvent(QTimerEvent* event)
+{
+    if (timer_id_ == event->timerId())
+    {
+        {
+            // pending_action_mutex_ locked
+            QMutexLocker locker(&pending_action_mutex_);
+
+            const qint64 current_time_ = QDateTime::currentMSecsSinceEpoch();
+
+            if ((state_ == switcher::state::ERROR_ && (current_time_ - update_time_ > UPDATE_IF_ERROR_MS)) ||
+                (state_ == switcher::state::UNKNOWN && (current_time_ - update_time_ > UPDATE_IF_UNKNOWN_MS)) ||
+                (state_ == switcher::state::FASTLAB && (current_time_ - update_time_ > UPDATE_IF_NORMAL_MS)) ||
+                (state_ == switcher::state::POSTWIN && (current_time_ - update_time_ > UPDATE_IF_NORMAL_MS)))
+            {
+                qDebug() << "timerEvent, time elapced = " << (current_time_ - update_time_) / 1000.0;
+                gif_switch_->start(); // change to cancelling
+
+                update_time_ = current_time_;
+                pending_action_ = action::UPDATE;
+                switcher_->cancel_async();
+            }
+        }
+    }
+    QObject::timerEvent(event);
 }
 
 void tray::show()
@@ -248,6 +289,7 @@ void tray::switcher_state_changed(switcher::state st)
             default:
                 break;
             }
+
             pending_action_ = action::NONE;
         }
         else
@@ -266,6 +308,10 @@ void tray::switcher_state_changed(switcher::state st)
                 trayIcon->setIcon(QIcon(":/images/unknown.png"));
             else if (st == switcher::state::ERROR_)
                 trayIcon->setIcon(QIcon(":/images/error.png"));
+
+            state_ = st;
         }
+
+        update_time_ = QDateTime::currentMSecsSinceEpoch();
     }
 }

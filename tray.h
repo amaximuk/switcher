@@ -31,11 +31,6 @@ private:
     QAction* refreshAction;
     QAction* quitAction;
 
-//    QAction *minimizeAction;
-//    QAction *maximizeAction;
-//    QAction *restoreAction;
-//    QAction *xxxAction;
-//    QAction *quitAction;
     QMovie* gif_update_;
     QMovie* gif_switch_;
     QSystemTrayIcon *trayIcon;
@@ -44,9 +39,17 @@ private:
 
     action pending_action_;
     QMutex pending_action_mutex_;
+    switcher::state state_;
+
+    quint64 update_time_;
+    int timer_id_;
+
+protected:
+    void timerEvent(QTimerEvent* event) override;
 
 public:
     explicit tray(QObject *parent = nullptr);
+    ~tray() override;
 
     void show();
 
