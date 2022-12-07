@@ -28,7 +28,8 @@ private:
     QMenu *trayIconMenu;
     QAction* fastlabAction;
     QAction* postwinAction;
-    QAction* refreshAction;
+    QAction* updateAction;
+    QAction* settingsAction;
     QAction* quitAction;
 
     QMovie* gif_update_;
@@ -55,7 +56,8 @@ public:
 
     void fastlab();
     void postwin();
-    void refresh();
+    void update();
+    void settings();
     void quit();
 
 private:

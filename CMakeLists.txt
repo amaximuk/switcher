@@ -13,7 +13,8 @@ set(CMAKE_AUTOUIC ON)
 file(GLOB PROJ_HDRS *.h)
 file(GLOB PROJ_SRCS *.cpp)
 file(GLOB PROJ_RES *.qrc)
+file(GLOB PROJ_UI *.ui)
 
-add_executable(switcher ${PROJ_HDRS} ${PROJ_SRCS} ${PROJ_RES})
+add_executable(switcher ${PROJ_HDRS} ${PROJ_SRCS} ${PROJ_RES} ${PROJ_UI})
 
 target_link_libraries(switcher Qt5::Core Qt5::Gui Qt5::Widgets)

@@ -8,6 +8,7 @@
 #include <QtWidgets>
 #include <QMessageBox>
 
+#include "settings_dialog.h"
 #include "switcher.h"
 #include "tray.h"
 
@@ -27,7 +28,8 @@ tray::tray(QObject *parent) : QObject(parent)
     fastlabAction->setIcon(QIcon(":/images/fastlab.png"));
     postwinAction = new QAction("&Postwin");
     postwinAction->setIcon(QIcon(":/images/postwin.png"));
-    refreshAction = new QAction("&Refresh");
+    updateAction = new QAction("&Update");
+    settingsAction = new QAction("&Settings");
     quitAction = new QAction("&Quit");
 
     trayIconMenu = new QMenu();
@@ -36,7 +38,8 @@ tray::tray(QObject *parent) : QObject(parent)
 
     trayIconMenu->addAction(fastlabAction);
     trayIconMenu->addAction(postwinAction);
-    trayIconMenu->addAction(refreshAction);
+    trayIconMenu->addAction(updateAction);
+    trayIconMenu->addAction(settingsAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(quitAction);
 
@@ -62,7 +65,8 @@ tray::tray(QObject *parent) : QObject(parent)
 
     QObject::connect(fastlabAction, &QAction::triggered, this, &tray::fastlab);
     QObject::connect(postwinAction, &QAction::triggered, this, &tray::postwin);
-    QObject::connect(refreshAction, &QAction::triggered, this, &tray::refresh);
+    QObject::connect(updateAction, &QAction::triggered, this, &tray::update);
+    QObject::connect(settingsAction, &QAction::triggered, this, &tray::settings);
     QObject::connect(quitAction, &QAction::triggered, this, &tray::quit);
 //    QObject::connect(qApp, &QCoreApplication::aboutToQuit, this, &tray::hide);
 
@@ -109,13 +113,6 @@ void tray::show()
 
 void tray::fastlab()
 {
-
-    //fastlabAction->setEnabled(false);
-    //postwinAction->setEnabled(false);
-    //refreshAction->setEnabled(false);
-    //gif_update_->stop();
-    //gif_switch_->start();
-
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(nullptr, "Switch to fastlab", "Generate error?", QMessageBox::Yes | QMessageBox::No);
     bool ok = (reply != QMessageBox::Yes);
@@ -130,20 +127,6 @@ void tray::fastlab()
         pending_action_ = action::SWITCH_TO_FASTLAB;
         switcher_->cancel_async();
     }
-
-    //switcher_->switch_to_fastlab_async();
-
-//    QMessageBox::StandardButton reply;
-//    reply = QMessageBox::question(nullptr, "Switch to Fastlab", "Are you shure?", QMessageBox::Yes | QMessageBox::No);
-//    if (reply == QMessageBox::Yes)
-//    {
-
-////        trayIcon->setIcon(QIcon(":/images/fastlab.png"));
-//    }
-//    else
-//    {
-//      qDebug() << "Yes was *not* clicked";
-//    }
 }
 
 void tray::postwin()
@@ -187,7 +170,7 @@ void tray::postwin()
 //    trayIcon->setIcon(QIcon(":/images/postwin.png"));
 }
 
-void tray::refresh()
+void tray::update()
 {
     //fastlabAction->setEnabled(false);
     //postwinAction->setEnabled(false);
@@ -221,6 +204,16 @@ void tray::refresh()
     }
 }
 
+void tray::settings()
+{
+    settings_dialog* sd = new settings_dialog();
+    if (QDialog::Accepted == sd->exec())
+    {
+        qDebug() << "settings accepted";
+    }
+    sd->deleteLater();
+}
+
 void tray::quit()
 {
     //switcher_->cancel();
@@ -234,7 +227,7 @@ void tray::quit()
 
         fastlabAction->setEnabled(false);
         postwinAction->setEnabled(false);
-        refreshAction->setEnabled(false);
+        updateAction->setEnabled(false);
         gif_switch_->stop();
         gif_update_->stop();
 
@@ -296,7 +289,7 @@ void tray::switcher_state_changed(switcher::state st)
         {
             fastlabAction->setEnabled(true);
             postwinAction->setEnabled(true);
-            refreshAction->setEnabled(true);
+            updateAction->setEnabled(true);
             gif_switch_->stop();
             gif_update_->stop();
 

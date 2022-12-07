@@ -13,7 +13,7 @@ switcher::switcher()
     current_process_ = process::IDLE;
     thread_exit_requested_ = false;
     ok_ = true;
-    ok2_ = switcher::state::ERROR_;
+    ok2_ = switcher::state::UNKNOWN;
 
 
     connect(&future_watcher_, &QFutureWatcher<void>::finished, this,  &switcher::thread_finished);
