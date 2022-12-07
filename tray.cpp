@@ -55,6 +55,9 @@ tray::tray(QObject *parent) : QObject(parent)
     gif_switch_ = new QMovie(":/images/switch.gif");
     connect(gif_switch_, &QMovie::frameChanged, this, &tray::updateIconSwitch);
 
+    gif_cancel_ = new QMovie(":/images/cancel.gif");
+    connect(gif_cancel_, &QMovie::frameChanged, this, &tray::updateIconCancel);
+
     switcher_.reset(new switcher());
     QObject::connect(switcher_.get(), &switcher::on_state_changed, this, &tray::switcher_state_changed);
 
@@ -122,7 +125,7 @@ void tray::fastlab()
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
 
-        gif_switch_->start(); // change to cancelling
+        gif_cancel_->start();
 
         pending_action_ = action::SWITCH_TO_FASTLAB;
         switcher_->cancel_async();
@@ -146,7 +149,7 @@ void tray::postwin()
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
 
-        gif_switch_->start(); // change to cancelling
+        gif_cancel_->start();
 
         pending_action_ = action::SWITCH_TO_POSTWIN;
         switcher_->cancel_async();
@@ -197,7 +200,7 @@ void tray::update()
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
 
-        gif_switch_->start(); // change to cancelling
+        gif_cancel_->start();
 
         pending_action_ = action::UPDATE;
         switcher_->cancel_async();
@@ -230,8 +233,9 @@ void tray::quit()
         updateAction->setEnabled(false);
         gif_switch_->stop();
         gif_update_->stop();
+        gif_cancel_->stop();
 
-        gif_switch_->start(); // change to cancelling
+        gif_cancel_->start();
 
         pending_action_ = action::QUIT;
         switcher_->cancel_async();
@@ -248,8 +252,20 @@ void tray::updateIconSwitch()
     trayIcon->setIcon(gif_switch_->currentPixmap());
 }
 
+void tray::updateIconCancel()
+{
+    trayIcon->setIcon(gif_cancel_->currentPixmap());
+}
+
 void tray::switcher_state_changed(switcher::state st)
 {
+    fastlabAction->setEnabled(true);
+    postwinAction->setEnabled(true);
+    updateAction->setEnabled(true);
+    gif_switch_->stop();
+    gif_update_->stop();
+    gif_cancel_->stop();
+
     {
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
@@ -272,7 +288,7 @@ void tray::switcher_state_changed(switcher::state st)
                 switcher_->switch_to_postwin_async();
                 break;
             case tray::action::UPDATE:
-                gif_switch_->start();
+                gif_update_->start();
                 switcher_->update_async();
                 break;
             case tray::action::QUIT:
@@ -287,12 +303,6 @@ void tray::switcher_state_changed(switcher::state st)
         }
         else
         {
-            fastlabAction->setEnabled(true);
-            postwinAction->setEnabled(true);
-            updateAction->setEnabled(true);
-            gif_switch_->stop();
-            gif_update_->stop();
-
             if (st == switcher::state::FASTLAB)
                 trayIcon->setIcon(QIcon(":/images/fastlab.png"));
             else if (st == switcher::state::POSTWIN)

@@ -6,5 +6,6 @@
         <file>images/fastlab.png</file>
         <file>images/postwin.png</file>
         <file>images/unknown.png</file>
+        <file>images/cancel.gif</file>
     </qresource>
 </RCC>

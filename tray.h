@@ -34,6 +34,7 @@ private:
 
     QMovie* gif_update_;
     QMovie* gif_switch_;
+    QMovie* gif_cancel_;
     QSystemTrayIcon *trayIcon;
 
     QScopedPointer<switcher> switcher_;
@@ -63,6 +64,7 @@ public:
 private:
     void updateIconUpdate();
     void updateIconSwitch();
+    void updateIconCancel();
 
 private slots:
     void switcher_state_changed(switcher::state st);
