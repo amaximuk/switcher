@@ -14,6 +14,17 @@ class tray : public QObject
 {
     Q_OBJECT
 
+private:
+    enum class action
+    {
+        NONE,
+        SWITCH_TO_FASTLAB,
+        SWITCH_TO_POSTWIN,
+        UPDATE,
+        QUIT
+    };
+
+private:
     QMenu *trayIconMenu;
     QAction* fastlabAction;
     QAction* postwinAction;
@@ -31,6 +42,9 @@ class tray : public QObject
 
     QScopedPointer<switcher> switcher_;
 
+    action pending_action_;
+    QMutex pending_action_mutex_;
+
 public:
     explicit tray(QObject *parent = nullptr);
 
@@ -47,7 +61,6 @@ private:
 
 private slots:
     void switcher_state_changed(switcher::state st);
-    void ask(bool& answer);
 
 signals:
 

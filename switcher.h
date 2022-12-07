@@ -46,26 +46,20 @@ public:
 
 signals:
     void on_state_changed(state st);
-    void on_switched_to_fastlab();
-    void on_switched_to_postwin();
-    void on_updated_state();
-    void on_updated();
-    void on_canceled();
-    void on_error();
-    void ask(bool& answer);
 
 public:
     void switch_to_fastlab_async();
     void switch_to_postwin_async();
-    void update_state_async();
-    void cancel();
+    void update_async();
+    void cancel_async();
     void set_result(bool ok);
     void set_refresh_result(switcher::state ok2);
 
 private:
     bool switch_to_fastlab_internel();
     bool switch_to_postwin_internel();
-    bool update_state_internel();
+    bool update_internel();
+    bool cancel_internel();
     void thread_finished();
 
 };
