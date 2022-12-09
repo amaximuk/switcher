@@ -59,6 +59,8 @@
 #ifndef QT_NO_SYSTEMTRAYICON
 
 #include <QMessageBox>
+
+#include "settings.h"
 #include "tray.h"
 
 //QMovie* gif;
@@ -97,7 +99,51 @@ int main(int argc, char *argv[])
     QApplication::setQuitOnLastWindowClosed(false);
 
 
-    tray main_tray;
+
+
+
+    QCommandLineParser parser;
+    parser.setApplicationDescription("Application Switcher");
+    parser.addHelpOption();
+    parser.addVersionOption();
+    // An option with a value
+    QCommandLineOption instanceNameOption(QStringList() << "i" << "instance",
+            "Set instance name to <instance-name>.",
+            "instance-name");
+    parser.addOption(instanceNameOption);
+    parser.process(app);
+
+    tray_settings ts{};
+    ts.instance_name_is_set = parser.isSet(instanceNameOption);
+    if (ts.instance_name_is_set)
+        ts.instance_name = parser.value(instanceNameOption);
+
+
+    //tray_settings ts{};
+    //QSettings app_settings(ini_file_name, QSettings::IniFormat);
+    //ts.host = app_settings.value("host", "127.0.0.1").toString();
+    //ts.login = app_settings.value("login", "user").toString();
+    //ts.password = app_settings.value("password", "rfhfcbr").toString();
+    //ts.normal_update_interval_sec = app_settings.value("normal_update_interval_sec", "300").toInt();
+    //ts.error_update_interval_sec = app_settings.value("error_update_interval_sec", "60").toInt();
+
+
+    //app_settings.setValue("host", ts.host);
+    //app_settings.setValue("login", ts.login);
+    //app_settings.setValue("password", ts.password);
+    //app_settings.setValue("normal_update_interval_sec", ts.normal_update_interval_sec);
+    //app_settings.setValue("error_update_interval_sec", ts.error_update_interval_sec);
+    //app_settings.sync();
+
+
+
+    tray main_tray(ts);
+
+
+    //tray* aaa = new tray();
+    //aaa->deleteLater();
+    //aaa->settings();
+
 //    tray* main_tray = new tray();
 //    QObject::connect(&app, &QCoreApplication::aboutToQuit, main_tray, &tray::hide);
 

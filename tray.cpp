@@ -19,10 +19,25 @@
 #define UPDATE_IF_UNKNOWN_MS 20000
 #define UPDATE_IF_NORMAL_MS 30000
 
-tray::tray(QObject *parent) : QObject(parent)
+tray::tray(tray_settings ts, QObject *parent) : QObject(parent)
 {
+    tray_settings_ = ts;
+
     pending_action_ = action::NONE;
     state_ = switcher::state::UNKNOWN;
+
+    QString ini_file_name = "switcher";
+    if (tray_settings_.instance_name_is_set)
+        ini_file_name += "_" + tray_settings_.instance_name;
+    ini_file_name += ".ini";
+
+    switcher_settings_ = {};
+    QSettings app_settings(ini_file_name, QSettings::IniFormat);
+    switcher_settings_.host = app_settings.value("host", "127.0.0.1").toString();
+    switcher_settings_.login = app_settings.value("login", "user").toString();
+    switcher_settings_.password = app_settings.value("password", "rfhfcbr").toString();
+    switcher_settings_.normal_update_interval_sec = app_settings.value("normal_update_interval_sec", "300").toInt();
+    switcher_settings_.error_update_interval_sec = app_settings.value("error_update_interval_sec", "60").toInt();
 
     fastlabAction = new QAction("&Fastlab");
     fastlabAction->setIcon(QIcon(":/images/fastlab.png"));
@@ -61,17 +76,11 @@ tray::tray(QObject *parent) : QObject(parent)
     switcher_.reset(new switcher());
     QObject::connect(switcher_.get(), &switcher::on_state_changed, this, &tray::switcher_state_changed);
 
-//    gif = new QMovie(":/images/refresh.gif");
-//    connect(gif, &QMovie::frameChanged, this, &tray::updateIcon);
-//    gif->start();
-
-
     QObject::connect(fastlabAction, &QAction::triggered, this, &tray::fastlab);
     QObject::connect(postwinAction, &QAction::triggered, this, &tray::postwin);
     QObject::connect(updateAction, &QAction::triggered, this, &tray::update);
     QObject::connect(settingsAction, &QAction::triggered, this, &tray::settings);
     QObject::connect(quitAction, &QAction::triggered, this, &tray::quit);
-//    QObject::connect(qApp, &QCoreApplication::aboutToQuit, this, &tray::hide);
 
     timer_id_ = startTimer(1000);
     update_time_ = QDateTime::currentMSecsSinceEpoch();
@@ -80,6 +89,19 @@ tray::tray(QObject *parent) : QObject(parent)
 tray::~tray()
 {
     killTimer(timer_id_);
+
+    QString ini_file_name = "switcher";
+    if (tray_settings_.instance_name_is_set)
+        ini_file_name += "_" + tray_settings_.instance_name;
+    ini_file_name += ".ini";
+
+    QSettings app_settings(ini_file_name, QSettings::IniFormat);
+    app_settings.setValue("host", switcher_settings_.host);
+    app_settings.setValue("login", switcher_settings_.login);
+    app_settings.setValue("password", switcher_settings_.password);
+    app_settings.setValue("normal_update_interval_sec", switcher_settings_.normal_update_interval_sec);
+    app_settings.setValue("error_update_interval_sec", switcher_settings_.error_update_interval_sec);
+    app_settings.sync();
 }
 
 void tray::timerEvent(QTimerEvent* event)
@@ -89,6 +111,7 @@ void tray::timerEvent(QTimerEvent* event)
         {
             // pending_action_mutex_ locked
             QMutexLocker locker(&pending_action_mutex_);
+            //switcher_settings_
 
             const qint64 current_time_ = QDateTime::currentMSecsSinceEpoch();
 
@@ -98,7 +121,7 @@ void tray::timerEvent(QTimerEvent* event)
                 (state_ == switcher::state::POSTWIN && (current_time_ - update_time_ > UPDATE_IF_NORMAL_MS)))
             {
                 qDebug() << "timerEvent, time elapced = " << (current_time_ - update_time_) / 1000.0;
-                gif_switch_->start(); // change to cancelling
+                gif_cancel_->start();
 
                 update_time_ = current_time_;
                 pending_action_ = action::UPDATE;
@@ -134,12 +157,6 @@ void tray::fastlab()
 
 void tray::postwin()
 {
-    //fastlabAction->setEnabled(false);
-    //postwinAction->setEnabled(false);
-    //refreshAction->setEnabled(false);
-    //gif_update_->stop();
-    //gif_switch_->start();
-
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(nullptr, "Switch to postwin", "Generate error?", QMessageBox::Yes | QMessageBox::No);
     bool ok = (reply != QMessageBox::Yes);
@@ -154,33 +171,10 @@ void tray::postwin()
         pending_action_ = action::SWITCH_TO_POSTWIN;
         switcher_->cancel_async();
     }
-
-    //switcher_->switch_to_postwin_async();
-
-
-//    QMessageBox::StandardButton reply;
-//    reply = QMessageBox::question(nullptr, "Switch to Postwin", "Are you shure?", QMessageBox::Yes | QMessageBox::No);
-//    if (reply == QMessageBox::Yes)
-//    {
-////        trayIcon->setIcon(QIcon(":/images/fastlab.png"));
-//    }
-//    else
-//    {
-//      qDebug() << "Yes was *not* clicked";
-//    }
-//    switcher_->switch_to_fastlab_async();
-//    gif->stop();
-//    trayIcon->setIcon(QIcon(":/images/postwin.png"));
 }
 
 void tray::update()
 {
-    //fastlabAction->setEnabled(false);
-    //postwinAction->setEnabled(false);
-    //refreshAction->setEnabled(false);
-    //gif_switch_->stop();
-    //gif_update_->start();
-
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(nullptr, "Refresh", "Generate error?", QMessageBox::Yes | QMessageBox::No);
     bool ok = (reply != QMessageBox::Yes);
@@ -193,8 +187,6 @@ void tray::update()
     if (reply2 == QMessageBox::No) ok2 = switcher::state::POSTWIN;
     if (reply2 == QMessageBox::Abort) ok2 = switcher::state::UNKNOWN;
     switcher_->set_refresh_result(ok2);
-
-    //switcher_->update_state_async();
 
     {
         // pending_action_mutex_ locked
@@ -210,20 +202,18 @@ void tray::update()
 void tray::settings()
 {
     settings_dialog* sd = new settings_dialog();
+    sd->set_settings(switcher_settings_);
     if (QDialog::Accepted == sd->exec())
     {
         qDebug() << "settings accepted";
+        switcher_settings_ = sd->get_settings();
+        switcher_->apply_settings(switcher_settings_);
     }
     sd->deleteLater();
 }
 
 void tray::quit()
 {
-    //switcher_->cancel();
-    //trayIcon->hide();
-    //QCoreApplication::quit();
-
-
     {
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
@@ -231,6 +221,8 @@ void tray::quit()
         fastlabAction->setEnabled(false);
         postwinAction->setEnabled(false);
         updateAction->setEnabled(false);
+        settingsAction->setEnabled(false);
+        quitAction->setEnabled(false);
         gif_switch_->stop();
         gif_update_->stop();
         gif_cancel_->stop();

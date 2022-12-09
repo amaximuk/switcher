@@ -1,11 +1,18 @@
 #pragma once
 #include "QString"
 
-struct settings
+struct tray_settings
 {
-	QString ip_address;
+	bool instance_name_is_set;
+    QString instance_name;
+};
+
+//using switcher_settings = tray_settings;
+struct switcher_settings
+{
+    QString host;
 	QString login;
 	QString password;
-	quint32 normal_update_interval;
-	quint32 error_update_interval;
+	quint32 normal_update_interval_sec;
+	quint32 error_update_interval_sec;
 };

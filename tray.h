@@ -2,6 +2,7 @@
 #define TRAY_H
 
 #include <QObject>
+#include "settings.h"
 #include "switcher.h"
 
 class QMenu;
@@ -25,6 +26,9 @@ private:
     };
 
 private:
+    tray_settings tray_settings_;
+    switcher_settings switcher_settings_;
+
     QMenu *trayIconMenu;
     QAction* fastlabAction;
     QAction* postwinAction;
@@ -50,7 +54,7 @@ protected:
     void timerEvent(QTimerEvent* event) override;
 
 public:
-    explicit tray(QObject *parent = nullptr);
+    explicit tray(tray_settings ts, QObject *parent = nullptr);
     ~tray() override;
 
     void show();

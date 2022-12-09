@@ -133,6 +133,14 @@ void switcher::set_refresh_result(switcher::state ok2)
     ok2_ = ok2;
 }
 
+void switcher::apply_settings(switcher_settings ss)
+{
+    QMutexLocker locker(&access_mutex_);
+    // QMutexLocker locker(&switcher_settings_mutex_);
+    switcher_settings_ = ss;
+    // reconnect
+}
+
 bool switcher::switch_to_fastlab_internel()
 {
     qDebug() << "switch_to_fastlab_internel";

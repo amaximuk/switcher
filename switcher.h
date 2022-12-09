@@ -6,6 +6,8 @@
 #include <QThread>
 #include <QtConcurrent/QtConcurrent>
 
+#include "settings.h"
+
 class switcher : public QObject
 {
     Q_OBJECT
@@ -41,6 +43,11 @@ private:
     bool ok_;
     switcher::state ok2_;
 
+    QString last_error_;
+
+    QMutex switcher_settings_mutex_;
+    switcher_settings switcher_settings_;
+
 public:
     switcher();
 
@@ -54,6 +61,7 @@ public:
     void cancel_async();
     void set_result(bool ok);
     void set_refresh_result(switcher::state ok2);
+    void apply_settings(switcher_settings ss);
 
 private:
     bool switch_to_fastlab_internel();
