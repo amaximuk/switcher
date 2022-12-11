@@ -15,7 +15,10 @@ switcher::switcher()
     ok_ = true;
     ok2_ = switcher::state::UNKNOWN;
 
-
+    // ssh-keygen -t rsa -q -f ~/.ssh/id_rsa -N ""
+    // type c:\Users\User\.ssh\id_rsa.pub | ssh user@192.168.88.46 "cat >> .ssh/authorized_keys"
+    // ssh-keyscan -H 192.168.88.46 >> ~/.ssh/known_hosts
+    // ssh user@192.168.88.46 -o BatchMode=no -o StrictHostKeyChecking=no ls
     connect(&future_watcher_, &QFutureWatcher<void>::finished, this,  &switcher::thread_finished);
 }
 
@@ -167,6 +170,15 @@ void switcher::apply_settings(switcher_settings ss)
 bool switcher::switch_to_fastlab_internel()
 {
     qDebug() << "switch_to_fastlab_internel";
+
+    switcher_settings ss{};
+
+    {
+        // switcher_settings_mutex_ locked
+        QMutexLocker locker(&switcher_settings_mutex_);
+        ss = switcher_settings_;
+    }
+
     for (int i = 0; i < DEBUG_SWITCH_TO_FASTLAB_SECONDS; i++)
     {
         qDebug() << "f" << i;
@@ -180,6 +192,15 @@ bool switcher::switch_to_fastlab_internel()
 bool switcher::switch_to_postwin_internel()
 {
     qDebug() << "switch_to_postwin_internel";
+
+    switcher_settings ss{};
+
+    {
+        // switcher_settings_mutex_ locked
+        QMutexLocker locker(&switcher_settings_mutex_);
+        ss = switcher_settings_;
+    }
+
     for (int i = 0; i < DEBUG_SWITCH_TO_POSTWIN_SECONDS; i++)
     {
         qDebug() << "p" << i;
@@ -193,6 +214,15 @@ bool switcher::switch_to_postwin_internel()
 bool switcher::update_internel()
 {
     qDebug() << "update_internel";
+
+    switcher_settings ss{};
+
+    {
+        // switcher_settings_mutex_ locked
+        QMutexLocker locker(&switcher_settings_mutex_);
+        ss = switcher_settings_;
+    }
+
     for (int i = 0; i < DEBUG_UPDATE_SECONDS; i++)
     {
         qDebug() << "u" << i;
