@@ -1,3 +1,4 @@
+#include <QIcon>
 #include "settings_dialog.h"
 #include "ui_settings_dialog.h"
 
@@ -7,6 +8,8 @@ settings_dialog::settings_dialog(QWidget *parent) :
 {
     ui->setupUi(this);
     setFixedSize(QSize(300, 200));
+    setWindowIcon(QIcon(":/images/settings.png"));
+    setWindowTitle("Switcher Settings");
 }
 
 settings_dialog::~settings_dialog()

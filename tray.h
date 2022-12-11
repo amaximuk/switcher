@@ -2,7 +2,9 @@
 #define TRAY_H
 
 #include <QObject>
+#include <QSystemTrayIcon>
 #include "settings.h"
+#include "logging_categories.h"
 #include "switcher.h"
 
 class QMenu;
@@ -27,26 +29,29 @@ private:
 
 private:
     run_settings run_settings_;
+    QString ini_file_name_;
+
     QMutex tray_settings_mutex_;
     tray_settings tray_settings_;
-    switcher_settings switcher_settings_;
 
-    QMenu *trayIconMenu;
-    QAction* fastlabAction;
-    QAction* postwinAction;
-    QAction* updateAction;
-    QAction* settingsAction;
-    QAction* quitAction;
+    //switcher_settings switcher_settings_;
+
+    QMenu *tray_icon_menu_;
+    QAction* fastlab_action_;
+    QAction* postwin_action_;
+    QAction* update_action_;
+    QAction* settings_action_;
+    QAction* quit_action_;
 
     QMovie* gif_update_;
     QMovie* gif_switch_;
     QMovie* gif_cancel_;
-    QSystemTrayIcon *trayIcon;
+    QSystemTrayIcon *tray_icon_;
 
     QScopedPointer<switcher> switcher_;
 
-    action pending_action_;
     QMutex pending_action_mutex_;
+    action pending_action_;
     switcher::state state_;
 
     QMutex update_time_mutex_;
@@ -57,7 +62,7 @@ protected:
     void timerEvent(QTimerEvent* event) override;
 
 public:
-    explicit tray(run_settings ts, QObject *parent = nullptr);
+    explicit tray(run_settings rs, QObject *parent = nullptr);
     ~tray() override;
 
     void show();
@@ -75,6 +80,7 @@ private:
 
 private slots:
     void switcher_state_changed(switcher::state st);
+    void tray_icon_activated(QSystemTrayIcon::ActivationReason ar);
 
 signals:
 

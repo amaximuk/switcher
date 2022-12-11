@@ -7,5 +7,6 @@
         <file>images/postwin.png</file>
         <file>images/unknown.png</file>
         <file>images/cancel.gif</file>
+        <file>images/settings.png</file>
     </qresource>
 </RCC>

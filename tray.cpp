@@ -19,54 +19,65 @@
 #define UPDATE_IF_UNKNOWN_MS 20000
 #define UPDATE_IF_NORMAL_MS 30000
 
-tray::tray(run_settings ts, QObject *parent) : QObject(parent)
+tray::tray(run_settings rs, QObject *parent) : QObject(parent)
 {
-    run_settings_ = ts;
+    run_settings_ = rs;
 
     pending_action_ = action::NONE;
     state_ = switcher::state::UNKNOWN;
 
-    QString ini_file_name = "switcher";
+    ini_file_name_ = "switcher";
     if (run_settings_.instance_name_is_set)
-        ini_file_name += "_" + run_settings_.instance_name;
-    ini_file_name += ".ini";
+        ini_file_name_ += "_" + run_settings_.instance_name;
+    ini_file_name_ += ".ini";
 
-    QSettings app_settings(ini_file_name, QSettings::IniFormat);
 
-    tray_settings_ = {};
-    tray_settings_.normal_update_interval_sec = app_settings.value("normal_update_interval_sec", "300").toInt();
-    tray_settings_.error_update_interval_sec = app_settings.value("error_update_interval_sec", "60").toInt();
+    tray_settings ts{};
+    switcher_settings ss{};
+    {
+        QSettings app_settings(ini_file_name_, QSettings::IniFormat);
+        ts.normal_update_interval_sec = app_settings.value("tray/normal_update_interval_sec", "300").toInt();
+        ts.error_update_interval_sec = app_settings.value("tray/error_update_interval_sec", "60").toInt();
+        ss.host = app_settings.value("switcher/host", "127.0.0.1").toString();
+        ss.login = app_settings.value("switcher/login", "user").toString();
+        ss.password = app_settings.value("switcher/password", "rfhfcbr").toString();
+    }
+    tray_settings_ = ts;
 
-    switcher_settings_ = {};
-    switcher_settings_.host = app_settings.value("host", "127.0.0.1").toString();
-    switcher_settings_.login = app_settings.value("login", "user").toString();
-    switcher_settings_.password = app_settings.value("password", "rfhfcbr").toString();
+    fastlab_action_ = new QAction("Fastlab");
+    fastlab_action_->setIcon(QIcon(":/images/fastlab.png"));
+    postwin_action_ = new QAction("Postwin");
+    postwin_action_->setIcon(QIcon(":/images/postwin.png"));
+    update_action_ = new QAction("Update");
+    settings_action_ = new QAction("Settings");
+    QFont f = settings_action_->font();
+    f.setBold(true);
+    settings_action_->setFont(f);
+    quit_action_ = new QAction("Quit");
 
-    fastlabAction = new QAction("&Fastlab");
-    fastlabAction->setIcon(QIcon(":/images/fastlab.png"));
-    postwinAction = new QAction("&Postwin");
-    postwinAction->setIcon(QIcon(":/images/postwin.png"));
-    updateAction = new QAction("&Update");
-    settingsAction = new QAction("&Settings");
-    quitAction = new QAction("&Quit");
-
-    trayIconMenu = new QMenu();
-    auto act = trayIconMenu->addAction("127.0.0.1");
+    tray_icon_menu_ = new QMenu();
+    auto act = tray_icon_menu_->addAction("127.0.0.1");
     act->setEnabled(false);
 
-    trayIconMenu->addAction(fastlabAction);
-    trayIconMenu->addAction(postwinAction);
-    trayIconMenu->addAction(updateAction);
-    trayIconMenu->addAction(settingsAction);
-    trayIconMenu->addSeparator();
-    trayIconMenu->addAction(quitAction);
+    tray_icon_menu_->addAction(fastlab_action_);
+    tray_icon_menu_->addAction(postwin_action_);
+    tray_icon_menu_->addAction(update_action_);
+    tray_icon_menu_->addSeparator();
+    tray_icon_menu_->addAction(settings_action_);
+    tray_icon_menu_->addSeparator();
+    tray_icon_menu_->addAction(quit_action_);
 
-    trayIcon = new QSystemTrayIcon();
-    trayIcon->setContextMenu(trayIconMenu);
-    trayIcon->setIcon(QIcon(":/images/unknown.png"));
-    trayIcon->setToolTip("127.0.0.1");
-    trayIcon->show();
+    tray_icon_ = new QSystemTrayIcon();
+    tray_icon_->setContextMenu(tray_icon_menu_);
+    tray_icon_->setIcon(QIcon(":/images/unknown.png"));
+    tray_icon_->setToolTip("127.0.0.1");
+    tray_icon_->show();
 
+    
+    
+    connect(tray_icon_, &QSystemTrayIcon::activated, this, &tray::tray_icon_activated);
+    
+    
     gif_update_ = new QMovie(":/images/update.gif");
     connect(gif_update_, &QMovie::frameChanged, this, &tray::updateIconUpdate);
 
@@ -77,34 +88,26 @@ tray::tray(run_settings ts, QObject *parent) : QObject(parent)
     connect(gif_cancel_, &QMovie::frameChanged, this, &tray::updateIconCancel);
 
     switcher_.reset(new switcher());
+    switcher_->apply_settings(ss);
     QObject::connect(switcher_.get(), &switcher::on_state_changed, this, &tray::switcher_state_changed);
 
-    QObject::connect(fastlabAction, &QAction::triggered, this, &tray::fastlab);
-    QObject::connect(postwinAction, &QAction::triggered, this, &tray::postwin);
-    QObject::connect(updateAction, &QAction::triggered, this, &tray::update);
-    QObject::connect(settingsAction, &QAction::triggered, this, &tray::settings);
-    QObject::connect(quitAction, &QAction::triggered, this, &tray::quit);
+    QObject::connect(fastlab_action_, &QAction::triggered, this, &tray::fastlab);
+    QObject::connect(postwin_action_, &QAction::triggered, this, &tray::postwin);
+    QObject::connect(update_action_, &QAction::triggered, this, &tray::update);
+    QObject::connect(settings_action_, &QAction::triggered, this, &tray::settings);
+    QObject::connect(quit_action_, &QAction::triggered, this, &tray::quit);
 
     timer_id_ = startTimer(1000);
     update_time_ = QDateTime::currentSecsSinceEpoch();
+
+    gif_cancel_->start();
+    pending_action_ = action::UPDATE;
+    switcher_->cancel_async();
 }
 
 tray::~tray()
 {
     killTimer(timer_id_);
-
-    QString ini_file_name = "switcher";
-    if (run_settings_.instance_name_is_set)
-        ini_file_name += "_" + run_settings_.instance_name;
-    ini_file_name += ".ini";
-
-    QSettings app_settings(ini_file_name, QSettings::IniFormat);
-    app_settings.setValue("normal_update_interval_sec", tray_settings_.normal_update_interval_sec);
-    app_settings.setValue("error_update_interval_sec", tray_settings_.error_update_interval_sec);
-    app_settings.setValue("host", switcher_settings_.host);
-    app_settings.setValue("login", switcher_settings_.login);
-    app_settings.setValue("password", switcher_settings_.password);
-    app_settings.sync();
 }
 
 void tray::timerEvent(QTimerEvent* event)
@@ -157,7 +160,7 @@ void tray::timerEvent(QTimerEvent* event)
 
 void tray::show()
 {
-    trayIcon->show();
+    tray_icon_->show();
 }
 
 void tray::fastlab()
@@ -227,10 +230,12 @@ void tray::settings()
     tray_settings ts{};
     switcher_settings ss{};
     {
-        // tray_settings_mutex_ locked
-        QMutexLocker locker(&tray_settings_mutex_);
-        ts = tray_settings_;
-        ss = switcher_settings_;
+        QSettings app_settings(ini_file_name_, QSettings::IniFormat);
+        ts.normal_update_interval_sec = app_settings.value("tray/normal_update_interval_sec", "300").toInt();
+        ts.error_update_interval_sec = app_settings.value("tray/error_update_interval_sec", "60").toInt();
+        ss.host = app_settings.value("switcher/host", "127.0.0.1").toString();
+        ss.login = app_settings.value("switcher/login", "user").toString();
+        ss.password = app_settings.value("switcher/password", "rfhfcbr").toString();
     }
 
     settings_dialog* sd = new settings_dialog();
@@ -238,18 +243,29 @@ void tray::settings()
     if (QDialog::Accepted == sd->exec())
     {
         qDebug() << "settings accepted";
+        
+        sd->get_settings(ts, ss);
+
+        {
+            QSettings app_settings(ini_file_name_, QSettings::IniFormat);
+            app_settings.setValue("tray/normal_update_interval_sec", ts.normal_update_interval_sec);
+            app_settings.setValue("tray/error_update_interval_sec", ts.error_update_interval_sec);
+            app_settings.setValue("switcher/host", ss.host);
+            app_settings.setValue("switcher/login", ss.login);
+            app_settings.setValue("switcher/password", ss.password);
+            app_settings.sync();
+        }
+
         {
             // update_time_mutex_ locked
             QMutexLocker locker(&update_time_mutex_);
             update_time_ = QDateTime::currentSecsSinceEpoch();
         }
 
-        sd->get_settings(ts, ss);
         {
             // tray_settings_mutex_ locked
             QMutexLocker locker(&tray_settings_mutex_);
             tray_settings_ = ts;
-            switcher_settings_ = ss;
         }
 
         switcher_->apply_settings(ss);
@@ -273,11 +289,11 @@ void tray::quit()
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
 
-        fastlabAction->setEnabled(false);
-        postwinAction->setEnabled(false);
-        updateAction->setEnabled(false);
-        settingsAction->setEnabled(false);
-        quitAction->setEnabled(false);
+        fastlab_action_->setEnabled(false);
+        postwin_action_->setEnabled(false);
+        update_action_->setEnabled(false);
+        settings_action_->setEnabled(false);
+        quit_action_->setEnabled(false);
         gif_switch_->stop();
         gif_update_->stop();
         gif_cancel_->stop();
@@ -291,24 +307,24 @@ void tray::quit()
 
 void tray::updateIconUpdate()
 {
-    trayIcon->setIcon(gif_update_->currentPixmap());
+    tray_icon_->setIcon(gif_update_->currentPixmap());
 }
 
 void tray::updateIconSwitch()
 {
-    trayIcon->setIcon(gif_switch_->currentPixmap());
+    tray_icon_->setIcon(gif_switch_->currentPixmap());
 }
 
 void tray::updateIconCancel()
 {
-    trayIcon->setIcon(gif_cancel_->currentPixmap());
+    tray_icon_->setIcon(gif_cancel_->currentPixmap());
 }
 
 void tray::switcher_state_changed(switcher::state st)
 {
-    fastlabAction->setEnabled(true);
-    postwinAction->setEnabled(true);
-    updateAction->setEnabled(true);
+    fastlab_action_->setEnabled(true);
+    postwin_action_->setEnabled(true);
+    update_action_->setEnabled(true);
     gif_switch_->stop();
     gif_update_->stop();
     gif_cancel_->stop();
@@ -339,7 +355,7 @@ void tray::switcher_state_changed(switcher::state st)
                 switcher_->update_async();
                 break;
             case tray::action::QUIT:
-                trayIcon->hide();
+                tray_icon_->hide();
                 QCoreApplication::quit();
                 break;
             default:
@@ -351,13 +367,13 @@ void tray::switcher_state_changed(switcher::state st)
         else
         {
             if (st == switcher::state::FASTLAB)
-                trayIcon->setIcon(QIcon(":/images/fastlab.png"));
+                tray_icon_->setIcon(QIcon(":/images/fastlab.png"));
             else if (st == switcher::state::POSTWIN)
-                trayIcon->setIcon(QIcon(":/images/postwin.png"));
+                tray_icon_->setIcon(QIcon(":/images/postwin.png"));
             else if (st == switcher::state::UNKNOWN)
-                trayIcon->setIcon(QIcon(":/images/unknown.png"));
+                tray_icon_->setIcon(QIcon(":/images/unknown.png"));
             else if (st == switcher::state::ERROR_)
-                trayIcon->setIcon(QIcon(":/images/error.png"));
+                tray_icon_->setIcon(QIcon(":/images/error.png"));
 
             state_ = st;
         }
@@ -367,5 +383,13 @@ void tray::switcher_state_changed(switcher::state st)
         // update_time_mutex_ locked
         QMutexLocker locker(&update_time_mutex_);
         update_time_ = QDateTime::currentSecsSinceEpoch();
+    }
+}
+
+void tray::tray_icon_activated(QSystemTrayIcon::ActivationReason ar)
+{
+    if (ar == QSystemTrayIcon::DoubleClick)
+    {
+        settings();
     }
 }

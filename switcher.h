@@ -36,6 +36,8 @@ private:
     QAtomicInt thread_exit_requested_;
     QFuture<bool> future_;
     QFutureWatcher<void> future_watcher_;
+
+    QMutex current_process_mutex_;
     process current_process_;
 
     QAtomicInt cancelled_;
