@@ -19,25 +19,28 @@
 #define UPDATE_IF_UNKNOWN_MS 20000
 #define UPDATE_IF_NORMAL_MS 30000
 
-tray::tray(tray_settings ts, QObject *parent) : QObject(parent)
+tray::tray(run_settings ts, QObject *parent) : QObject(parent)
 {
-    tray_settings_ = ts;
+    run_settings_ = ts;
 
     pending_action_ = action::NONE;
     state_ = switcher::state::UNKNOWN;
 
     QString ini_file_name = "switcher";
-    if (tray_settings_.instance_name_is_set)
-        ini_file_name += "_" + tray_settings_.instance_name;
+    if (run_settings_.instance_name_is_set)
+        ini_file_name += "_" + run_settings_.instance_name;
     ini_file_name += ".ini";
 
-    switcher_settings_ = {};
     QSettings app_settings(ini_file_name, QSettings::IniFormat);
+
+    tray_settings_ = {};
+    tray_settings_.normal_update_interval_sec = app_settings.value("normal_update_interval_sec", "300").toInt();
+    tray_settings_.error_update_interval_sec = app_settings.value("error_update_interval_sec", "60").toInt();
+
+    switcher_settings_ = {};
     switcher_settings_.host = app_settings.value("host", "127.0.0.1").toString();
     switcher_settings_.login = app_settings.value("login", "user").toString();
     switcher_settings_.password = app_settings.value("password", "rfhfcbr").toString();
-    switcher_settings_.normal_update_interval_sec = app_settings.value("normal_update_interval_sec", "300").toInt();
-    switcher_settings_.error_update_interval_sec = app_settings.value("error_update_interval_sec", "60").toInt();
 
     fastlabAction = new QAction("&Fastlab");
     fastlabAction->setIcon(QIcon(":/images/fastlab.png"));
@@ -83,7 +86,7 @@ tray::tray(tray_settings ts, QObject *parent) : QObject(parent)
     QObject::connect(quitAction, &QAction::triggered, this, &tray::quit);
 
     timer_id_ = startTimer(1000);
-    update_time_ = QDateTime::currentMSecsSinceEpoch();
+    update_time_ = QDateTime::currentSecsSinceEpoch();
 }
 
 tray::~tray()
@@ -91,16 +94,16 @@ tray::~tray()
     killTimer(timer_id_);
 
     QString ini_file_name = "switcher";
-    if (tray_settings_.instance_name_is_set)
-        ini_file_name += "_" + tray_settings_.instance_name;
+    if (run_settings_.instance_name_is_set)
+        ini_file_name += "_" + run_settings_.instance_name;
     ini_file_name += ".ini";
 
     QSettings app_settings(ini_file_name, QSettings::IniFormat);
+    app_settings.setValue("normal_update_interval_sec", tray_settings_.normal_update_interval_sec);
+    app_settings.setValue("error_update_interval_sec", tray_settings_.error_update_interval_sec);
     app_settings.setValue("host", switcher_settings_.host);
     app_settings.setValue("login", switcher_settings_.login);
     app_settings.setValue("password", switcher_settings_.password);
-    app_settings.setValue("normal_update_interval_sec", switcher_settings_.normal_update_interval_sec);
-    app_settings.setValue("error_update_interval_sec", switcher_settings_.error_update_interval_sec);
     app_settings.sync();
 }
 
@@ -108,25 +111,45 @@ void tray::timerEvent(QTimerEvent* event)
 {
     if (timer_id_ == event->timerId())
     {
+        tray_settings ts{};
+        {
+            // tray_settings_mutex_ locked
+            QMutexLocker locker(&tray_settings_mutex_);
+            ts = tray_settings_;
+        }
+
+        quint64 ut{};
+        {
+            // update_time_mutex_ locked
+            QMutexLocker locker(&update_time_mutex_);
+            ut = update_time_;
+        }
+
+        const qint64 ct = QDateTime::currentSecsSinceEpoch();
+        bool updated = false;
         {
             // pending_action_mutex_ locked
             QMutexLocker locker(&pending_action_mutex_);
-            //switcher_settings_
 
-            const qint64 current_time_ = QDateTime::currentMSecsSinceEpoch();
-
-            if ((state_ == switcher::state::ERROR_ && (current_time_ - update_time_ > UPDATE_IF_ERROR_MS)) ||
-                (state_ == switcher::state::UNKNOWN && (current_time_ - update_time_ > UPDATE_IF_UNKNOWN_MS)) ||
-                (state_ == switcher::state::FASTLAB && (current_time_ - update_time_ > UPDATE_IF_NORMAL_MS)) ||
-                (state_ == switcher::state::POSTWIN && (current_time_ - update_time_ > UPDATE_IF_NORMAL_MS)))
+            if ((state_ == switcher::state::ERROR_ && (ct - ut > ts.error_update_interval_sec)) ||
+                (state_ == switcher::state::UNKNOWN && (ct - ut > ts.normal_update_interval_sec)) ||
+                (state_ == switcher::state::FASTLAB && (ct - ut > ts.normal_update_interval_sec)) ||
+                (state_ == switcher::state::POSTWIN && (ct - ut > ts.normal_update_interval_sec)))
             {
-                qDebug() << "timerEvent, time elapced = " << (current_time_ - update_time_) / 1000.0;
+                qDebug() << "timerEvent, time elapced = " << (ct - ut);
                 gif_cancel_->start();
 
-                update_time_ = current_time_;
+                updated = true;
                 pending_action_ = action::UPDATE;
                 switcher_->cancel_async();
             }
+        }
+
+        if (updated)
+        {
+            // update_time_mutex_ locked
+            QMutexLocker locker(&update_time_mutex_);
+            update_time_ = ct;
         }
     }
     QObject::timerEvent(event);
@@ -201,13 +224,45 @@ void tray::update()
 
 void tray::settings()
 {
+    tray_settings ts{};
+    switcher_settings ss{};
+    {
+        // tray_settings_mutex_ locked
+        QMutexLocker locker(&tray_settings_mutex_);
+        ts = tray_settings_;
+        ss = switcher_settings_;
+    }
+
     settings_dialog* sd = new settings_dialog();
-    sd->set_settings(switcher_settings_);
+    sd->set_settings(ts, ss);
     if (QDialog::Accepted == sd->exec())
     {
         qDebug() << "settings accepted";
-        switcher_settings_ = sd->get_settings();
-        switcher_->apply_settings(switcher_settings_);
+        {
+            // update_time_mutex_ locked
+            QMutexLocker locker(&update_time_mutex_);
+            update_time_ = QDateTime::currentSecsSinceEpoch();
+        }
+
+        sd->get_settings(ts, ss);
+        {
+            // tray_settings_mutex_ locked
+            QMutexLocker locker(&tray_settings_mutex_);
+            tray_settings_ = ts;
+            switcher_settings_ = ss;
+        }
+
+        switcher_->apply_settings(ss);
+        
+        {
+            // pending_action_mutex_ locked
+            QMutexLocker locker(&pending_action_mutex_);
+
+            gif_cancel_->start();
+
+            pending_action_ = action::UPDATE;
+            switcher_->cancel_async();
+        }
     }
     sd->deleteLater();
 }
@@ -306,7 +361,11 @@ void tray::switcher_state_changed(switcher::state st)
 
             state_ = st;
         }
+    }
 
-        update_time_ = QDateTime::currentMSecsSinceEpoch();
+    {
+        // update_time_mutex_ locked
+        QMutexLocker locker(&update_time_mutex_);
+        update_time_ = QDateTime::currentSecsSinceEpoch();
     }
 }

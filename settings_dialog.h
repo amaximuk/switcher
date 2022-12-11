@@ -13,6 +13,7 @@ class settings_dialog : public QDialog
     Q_OBJECT
 
 private:
+    tray_settings tray_settings_;
     switcher_settings switcher_settings_;
 
 public:
@@ -20,8 +21,8 @@ public:
     ~settings_dialog();
 
 public:
-    void set_settings(switcher_settings ss);
-    switcher_settings get_settings();
+    void set_settings(tray_settings ts, switcher_settings ss);
+    void get_settings(tray_settings& ts, switcher_settings& ss);
 
 private:
     Ui::settings_dialog *ui;

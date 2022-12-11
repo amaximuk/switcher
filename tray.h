@@ -26,6 +26,8 @@ private:
     };
 
 private:
+    run_settings run_settings_;
+    QMutex tray_settings_mutex_;
     tray_settings tray_settings_;
     switcher_settings switcher_settings_;
 
@@ -47,6 +49,7 @@ private:
     QMutex pending_action_mutex_;
     switcher::state state_;
 
+    QMutex update_time_mutex_;
     quint64 update_time_;
     int timer_id_;
 
@@ -54,7 +57,7 @@ protected:
     void timerEvent(QTimerEvent* event) override;
 
 public:
-    explicit tray(tray_settings ts, QObject *parent = nullptr);
+    explicit tray(run_settings ts, QObject *parent = nullptr);
     ~tray() override;
 
     void show();

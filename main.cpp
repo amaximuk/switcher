@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     parser.addOption(instanceNameOption);
     parser.process(app);
 
-    tray_settings ts{};
+    run_settings ts{};
     ts.instance_name_is_set = parser.isSet(instanceNameOption);
     if (ts.instance_name_is_set)
         ts.instance_name = parser.value(instanceNameOption);

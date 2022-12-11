@@ -14,22 +14,22 @@ settings_dialog::~settings_dialog()
     delete ui;
 }
 
-void settings_dialog::set_settings(switcher_settings ss)
+void settings_dialog::set_settings(tray_settings ts, switcher_settings ss)
 {
+    tray_settings_ = ts;
+    ui->spinBoxNormalInterval->setValue(tray_settings_.normal_update_interval_sec);
+    ui->spinBoxErrorInterval->setValue(tray_settings_.error_update_interval_sec);
     switcher_settings_ = ss;
     ui->lineEditHost->setText(switcher_settings_.host);
     ui->lineEditLogin->setText(switcher_settings_.login);
     ui->lineEditPassword->setText(switcher_settings_.password);
-    ui->spinBoxNormalInterval->setValue(switcher_settings_.normal_update_interval_sec);
-    ui->spinBoxErrorInterval->setValue(switcher_settings_.error_update_interval_sec);
 }
 
-switcher_settings settings_dialog::get_settings()
+void settings_dialog::get_settings(tray_settings& ts, switcher_settings& ss)
 {
-    switcher_settings_.host = ui->lineEditHost->text();
-    switcher_settings_.login = ui->lineEditLogin->text();
-    switcher_settings_.password = ui->lineEditPassword->text();
-    switcher_settings_.normal_update_interval_sec = ui->spinBoxNormalInterval->value();
-    switcher_settings_.error_update_interval_sec = ui->spinBoxErrorInterval->value();
-    return switcher_settings_;
+    ts.normal_update_interval_sec = ui->spinBoxNormalInterval->value();
+    ts.error_update_interval_sec = ui->spinBoxErrorInterval->value();
+    ss.host = ui->lineEditHost->text();
+    ss.login = ui->lineEditLogin->text();
+    ss.password = ui->lineEditPassword->text();
 }
