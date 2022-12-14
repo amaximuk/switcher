@@ -17,5 +17,5 @@ struct switcher_settings
 {
     QString host;
 	QString login;
-	QString password;
+    QString key;
 };

@@ -25,7 +25,7 @@ void settings_dialog::set_settings(tray_settings ts, switcher_settings ss)
     switcher_settings_ = ss;
     ui->lineEditHost->setText(switcher_settings_.host);
     ui->lineEditLogin->setText(switcher_settings_.login);
-    ui->lineEditPassword->setText(switcher_settings_.password);
+    ui->lineEditKey->setText(switcher_settings_.key);
 }
 
 void settings_dialog::get_settings(tray_settings& ts, switcher_settings& ss)
@@ -34,5 +34,5 @@ void settings_dialog::get_settings(tray_settings& ts, switcher_settings& ss)
     ts.error_update_interval_sec = ui->spinBoxErrorInterval->value();
     ss.host = ui->lineEditHost->text();
     ss.login = ui->lineEditLogin->text();
-    ss.password = ui->lineEditPassword->text();
+    ss.key = ui->lineEditKey->text();
 }

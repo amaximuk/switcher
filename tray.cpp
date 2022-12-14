@@ -40,7 +40,7 @@ tray::tray(run_settings rs, QObject *parent) : QObject(parent)
         ts.error_update_interval_sec = app_settings.value("tray/error_update_interval_sec", "60").toInt();
         ss.host = app_settings.value("switcher/host", "127.0.0.1").toString();
         ss.login = app_settings.value("switcher/login", "user").toString();
-        ss.password = app_settings.value("switcher/password", "rfhfcbr").toString();
+        ss.key = app_settings.value("switcher/key", "id_rsa").toString();
     }
     tray_settings_ = ts;
 
@@ -235,7 +235,7 @@ void tray::settings()
         ts.error_update_interval_sec = app_settings.value("tray/error_update_interval_sec", "60").toInt();
         ss.host = app_settings.value("switcher/host", "127.0.0.1").toString();
         ss.login = app_settings.value("switcher/login", "user").toString();
-        ss.password = app_settings.value("switcher/password", "rfhfcbr").toString();
+        ss.key = app_settings.value("switcher/key", "id_rsa").toString();
     }
 
     settings_dialog* sd = new settings_dialog();
@@ -252,7 +252,7 @@ void tray::settings()
             app_settings.setValue("tray/error_update_interval_sec", ts.error_update_interval_sec);
             app_settings.setValue("switcher/host", ss.host);
             app_settings.setValue("switcher/login", ss.login);
-            app_settings.setValue("switcher/password", ss.password);
+            app_settings.setValue("switcher/key", ss.key);
             app_settings.sync();
         }
 

@@ -1,5 +1,6 @@
 #include <QMutexLocker>
 #include <QDebug>
+#include <QProcess>
 
 #include "switcher.h"
 
@@ -178,6 +179,35 @@ bool switcher::switch_to_fastlab_internel()
         QMutexLocker locker(&switcher_settings_mutex_);
         ss = switcher_settings_;
     }
+
+    QProcess qp;
+    //QStringList arguments({QString("%1@%2").arg(ss.login, ss.host), "-o BatchMode=yes", "-o StrictHostKeyChecking=no", "ls"});
+    //QStringList arguments({QString("%1@%2").arg(ss.login, ss.host), "-i c:/Users/alexander/.ssh/astra112", "ls"});
+    //qp.start("ssh", arguments);
+    //qp.start("ssh -i c:/Users/alexander/.ssh/astra112 -o BatchMode=yes -o StrictHostKeyChecking=no user@172.18.10.137 ls");
+    QString command = "ls";
+    QString key_path = QDir::home().filePath(".ssh/" + ss.key);
+    QString run_command = QString("ssh -i %1 -o BatchMode=yes -o StrictHostKeyChecking=no %2@%3 %4").arg(key_path, ss.login, ss.host, command);
+    qp.start(run_command);
+    bool finished = qp.waitForFinished();
+    int exit_code = qp.exitCode();
+    if (!finished || exit_code != 0)
+    {
+        last_error_ = "SSH error";
+    }
+    QString output(qp.readAllStandardOutput());
+    qDebug() << output;
+    //QString output1(qp.readAllStandardError());
+
+
+    
+    // ssh user@192.168.88.46 -o BatchMode=no -o StrictHostKeyChecking=no ls
+    // ssh user@172.18.10.137 -o StrictHostKeyChecking=no ls
+    // ssh -i c:/Users/alexander/.ssh/astra112 -o BatchMode=yes -o StrictHostKeyChecking=no user@172.18.10.137 ls
+    //pingProcess.start(exec, params);
+    //pingProcess.waitForFinished(); // sets current thread to sleep and waits for pingProcess end
+    //QString output(pingProcess.readAllStandardOutput());
+    //connect(&pingProcess, SIGNAL(readyReadStandardOutput()), this, SLOT(readData()));
 
     for (int i = 0; i < DEBUG_SWITCH_TO_FASTLAB_SECONDS; i++)
     {
