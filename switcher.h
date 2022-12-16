@@ -31,10 +31,17 @@ private:
         CANCELING
     };
 
+    struct thread_result
+    {
+        bool error;
+        QString error_message;
+        QString host;
+    };
+
 private:
     QMutex access_mutex_;
     QAtomicInt thread_exit_requested_;
-    QFuture<bool> future_;
+    QFuture<thread_result> future_;
     QFutureWatcher<void> future_watcher_;
 
     QMutex current_process_mutex_;
@@ -54,7 +61,7 @@ public:
     switcher();
 
 signals:
-    void on_state_changed(state st);
+    void on_state_changed(state st, QString host, QString message);
 
 public:
     void switch_to_fastlab_async();
@@ -64,12 +71,16 @@ public:
     void set_result(bool ok);
     void set_refresh_result(switcher::state ok2);
     void apply_settings(switcher_settings ss);
+    inline QString get_last_error()
+    {
+        return last_error_;
+    };
 
 private:
-    bool switch_to_fastlab_internel();
-    bool switch_to_postwin_internel();
-    bool update_internel();
-    bool cancel_internel();
+    thread_result switch_to_fastlab_internel();
+    thread_result switch_to_postwin_internel();
+    thread_result update_internel();
+    thread_result cancel_internel();
     void thread_finished();
 
 };

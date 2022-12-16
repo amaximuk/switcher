@@ -37,6 +37,7 @@ private:
     //switcher_settings switcher_settings_;
 
     QMenu *tray_icon_menu_;
+    QAction* header_action_;
     QAction* fastlab_action_;
     QAction* postwin_action_;
     QAction* update_action_;
@@ -79,7 +80,7 @@ private:
     void updateIconCancel();
 
 private slots:
-    void switcher_state_changed(switcher::state st);
+    void switcher_state_changed(switcher::state st, QString host, QString message);
     void tray_icon_activated(QSystemTrayIcon::ActivationReason ar);
 
 signals:

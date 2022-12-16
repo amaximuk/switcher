@@ -168,9 +168,10 @@ void switcher::apply_settings(switcher_settings ss)
     }
 }
 
-bool switcher::switch_to_fastlab_internel()
+switcher::thread_result switcher::switch_to_fastlab_internel()
 {
     qDebug() << "switch_to_fastlab_internel";
+    thread_result tr{};
 
     switcher_settings ss{};
 
@@ -179,6 +180,8 @@ bool switcher::switch_to_fastlab_internel()
         QMutexLocker locker(&switcher_settings_mutex_);
         ss = switcher_settings_;
     }
+
+    tr.host = ss.host;
 
     QProcess qp;
     //QStringList arguments({QString("%1@%2").arg(ss.login, ss.host), "-o BatchMode=yes", "-o StrictHostKeyChecking=no", "ls"});
@@ -193,6 +196,8 @@ bool switcher::switch_to_fastlab_internel()
     int exit_code = qp.exitCode();
     if (!finished || exit_code != 0)
     {
+        tr.error = true;
+        tr.error_message = "SSH error";
         last_error_ = "SSH error";
     }
     QString output(qp.readAllStandardOutput());
@@ -216,12 +221,13 @@ bool switcher::switch_to_fastlab_internel()
             break;
         QThread::sleep(1);
     }
-    return ok_;
+    return tr;
 }
 
-bool switcher::switch_to_postwin_internel()
+switcher::thread_result switcher::switch_to_postwin_internel()
 {
     qDebug() << "switch_to_postwin_internel";
+    thread_result tr{};
 
     switcher_settings ss{};
 
@@ -230,6 +236,8 @@ bool switcher::switch_to_postwin_internel()
         QMutexLocker locker(&switcher_settings_mutex_);
         ss = switcher_settings_;
     }
+
+    tr.host = ss.host;
 
     for (int i = 0; i < DEBUG_SWITCH_TO_POSTWIN_SECONDS; i++)
     {
@@ -238,12 +246,13 @@ bool switcher::switch_to_postwin_internel()
             break;
         QThread::sleep(1);
     }
-    return ok_;
+    return tr;
 }
 
-bool switcher::update_internel()
+switcher::thread_result switcher::update_internel()
 {
     qDebug() << "update_internel";
+    thread_result tr{};
 
     switcher_settings ss{};
 
@@ -253,6 +262,8 @@ bool switcher::update_internel()
         ss = switcher_settings_;
     }
 
+    tr.host = ss.host;
+
     for (int i = 0; i < DEBUG_UPDATE_SECONDS; i++)
     {
         qDebug() << "u" << i;
@@ -260,12 +271,24 @@ bool switcher::update_internel()
             break;
         QThread::sleep(1);
     }
-    return ok_;
+    return tr;
 }
 
-bool switcher::cancel_internel()
+switcher::thread_result switcher::cancel_internel()
 {
     qDebug() << "cancel_internel";
+    thread_result tr{};
+
+    switcher_settings ss{};
+
+    {
+        // switcher_settings_mutex_ locked
+        QMutexLocker locker(&switcher_settings_mutex_);
+        ss = switcher_settings_;
+    }
+
+    tr.host = ss.host;
+
     for (int i = 0; i < DEBUG_CANCEL_SECONDS; i++)
     {
         qDebug() << "c" << i;
@@ -273,27 +296,27 @@ bool switcher::cancel_internel()
         //    break;
         QThread::sleep(1);
     }
-    return ok_;
+    return tr;
 }
 
 void switcher::thread_finished()
 {
-    qDebug() << "thread_finished, result = " << future_.result();
-    bool result = future_.result();
+    thread_result result = future_.result();
+    qDebug() << "thread_finished, error = " << result.error;
 
-    if (!result)
+    if (result.error)
     {
         {
             // current_process_mutex_ locked
             QMutexLocker locker(&current_process_mutex_);
 
-            qDebug() << "!result";
+            qDebug() << "thread finished with error";
             current_process_ = process::IDLE;
             thread_exit_requested_ = false;
         }
 
         // Emit state changed
-        emit on_state_changed(state::ERROR_);
+        emit on_state_changed(state::ERROR_, result.host, result.error_message);
     }
     else
     {
@@ -338,16 +361,16 @@ void switcher::thread_finished()
         case process::IDLE:
             break;
         case process::SWITCHING_TO_FASTLAB:
-            emit on_state_changed(state::FASTLAB);
+            emit on_state_changed(state::FASTLAB, result.host, "Fastlab");
             break;
         case process::SWITCHING_TO_POSTWIN:
-            emit on_state_changed(state::POSTWIN);
+            emit on_state_changed(state::POSTWIN, result.host, "Postwin");
             break;
         case process::UPDATING:
-            emit on_state_changed(ok2_);
+            emit on_state_changed(ok2_, result.host, "");
             break;
         case process::CANCELING:
-            emit on_state_changed(state::UNKNOWN);
+            emit on_state_changed(state::UNKNOWN, result.host, "Unknown");
             break;
         default:
             break;

@@ -44,11 +44,14 @@ tray::tray(run_settings rs, QObject *parent) : QObject(parent)
     }
     tray_settings_ = ts;
 
+    header_action_ = new QAction(ss.host);
+    header_action_->setEnabled(false);
     fastlab_action_ = new QAction("Fastlab");
     fastlab_action_->setIcon(QIcon(":/images/fastlab.png"));
     postwin_action_ = new QAction("Postwin");
     postwin_action_->setIcon(QIcon(":/images/postwin.png"));
     update_action_ = new QAction("Update");
+    update_action_->setIcon(QIcon(":/images/unknown.png"));
     settings_action_ = new QAction("Settings");
     QFont f = settings_action_->font();
     f.setBold(true);
@@ -56,9 +59,7 @@ tray::tray(run_settings rs, QObject *parent) : QObject(parent)
     quit_action_ = new QAction("Quit");
 
     tray_icon_menu_ = new QMenu();
-    auto act = tray_icon_menu_->addAction("127.0.0.1");
-    act->setEnabled(false);
-
+    tray_icon_menu_->addAction(header_action_);
     tray_icon_menu_->addAction(fastlab_action_);
     tray_icon_menu_->addAction(postwin_action_);
     tray_icon_menu_->addAction(update_action_);
@@ -70,7 +71,7 @@ tray::tray(run_settings rs, QObject *parent) : QObject(parent)
     tray_icon_ = new QSystemTrayIcon();
     tray_icon_->setContextMenu(tray_icon_menu_);
     tray_icon_->setIcon(QIcon(":/images/unknown.png"));
-    tray_icon_->setToolTip("127.0.0.1");
+    tray_icon_->setToolTip(QString("%1\n%2").arg(ss.host, "Unknown"));
     tray_icon_->show();
 
     
@@ -140,6 +141,8 @@ void tray::timerEvent(QTimerEvent* event)
                 (state_ == switcher::state::POSTWIN && (ct - ut > ts.normal_update_interval_sec)))
             {
                 qDebug() << "timerEvent, time elapced = " << (ct - ut);
+                gif_switch_->stop();
+                gif_update_->stop();
                 gif_cancel_->start();
 
                 updated = true;
@@ -174,6 +177,8 @@ void tray::fastlab()
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
 
+        gif_switch_->stop();
+        gif_update_->stop();
         gif_cancel_->start();
 
         pending_action_ = action::SWITCH_TO_FASTLAB;
@@ -192,6 +197,8 @@ void tray::postwin()
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
 
+        gif_switch_->stop();
+        gif_update_->stop();
         gif_cancel_->start();
 
         pending_action_ = action::SWITCH_TO_POSTWIN;
@@ -218,6 +225,8 @@ void tray::update()
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
 
+        gif_switch_->stop();
+        gif_update_->stop();
         gif_cancel_->start();
 
         pending_action_ = action::UPDATE;
@@ -245,6 +254,8 @@ void tray::settings()
         qDebug() << "settings accepted";
         
         sd->get_settings(ts, ss);
+        header_action_->setText(ss.host);
+        tray_icon_->setToolTip(ss.host);
 
         {
             QSettings app_settings(ini_file_name_, QSettings::IniFormat);
@@ -274,6 +285,8 @@ void tray::settings()
             // pending_action_mutex_ locked
             QMutexLocker locker(&pending_action_mutex_);
 
+            gif_switch_->stop();
+            gif_update_->stop();
             gif_cancel_->start();
 
             pending_action_ = action::UPDATE;
@@ -296,8 +309,6 @@ void tray::quit()
         quit_action_->setEnabled(false);
         gif_switch_->stop();
         gif_update_->stop();
-        gif_cancel_->stop();
-
         gif_cancel_->start();
 
         pending_action_ = action::QUIT;
@@ -320,7 +331,7 @@ void tray::updateIconCancel()
     tray_icon_->setIcon(gif_cancel_->currentPixmap());
 }
 
-void tray::switcher_state_changed(switcher::state st)
+void tray::switcher_state_changed(switcher::state st, QString host, QString message)
 {
     fastlab_action_->setEnabled(true);
     postwin_action_->setEnabled(true);
@@ -333,7 +344,7 @@ void tray::switcher_state_changed(switcher::state st)
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
 
-        if (st == switcher::state::ERROR_)
+        if (st == switcher::state::ERROR_ && pending_action_ != tray::action::QUIT)
             pending_action_ = action::NONE;
 
         if (pending_action_ != action::NONE)
@@ -367,14 +378,22 @@ void tray::switcher_state_changed(switcher::state st)
         else
         {
             if (st == switcher::state::FASTLAB)
+            {
                 tray_icon_->setIcon(QIcon(":/images/fastlab.png"));
+            }
             else if (st == switcher::state::POSTWIN)
+            {
                 tray_icon_->setIcon(QIcon(":/images/postwin.png"));
+            }
             else if (st == switcher::state::UNKNOWN)
+            {
                 tray_icon_->setIcon(QIcon(":/images/unknown.png"));
+            }
             else if (st == switcher::state::ERROR_)
+            {
                 tray_icon_->setIcon(QIcon(":/images/error.png"));
-
+            }
+            tray_icon_->setToolTip(QString("%1\n%2").arg(host, message));
             state_ = st;
         }
     }
