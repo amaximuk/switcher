@@ -168,10 +168,10 @@ void tray::show()
 
 void tray::fastlab()
 {
-    QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(nullptr, "Switch to fastlab", "Generate error?", QMessageBox::Yes | QMessageBox::No);
-    bool ok = (reply != QMessageBox::Yes);
-    switcher_->set_result(ok);
+    //QMessageBox::StandardButton reply;
+    //reply = QMessageBox::question(nullptr, "Switch to fastlab", "Generate error?", QMessageBox::Yes | QMessageBox::No);
+    //bool ok = (reply != QMessageBox::Yes);
+    //switcher_->set_result(ok);
 
     {
         // pending_action_mutex_ locked
@@ -188,10 +188,10 @@ void tray::fastlab()
 
 void tray::postwin()
 {
-    QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(nullptr, "Switch to postwin", "Generate error?", QMessageBox::Yes | QMessageBox::No);
-    bool ok = (reply != QMessageBox::Yes);
-    switcher_->set_result(ok);
+    //QMessageBox::StandardButton reply;
+    //reply = QMessageBox::question(nullptr, "Switch to postwin", "Generate error?", QMessageBox::Yes | QMessageBox::No);
+    //bool ok = (reply != QMessageBox::Yes);
+    //switcher_->set_result(ok);
 
     {
         // pending_action_mutex_ locked
@@ -208,18 +208,18 @@ void tray::postwin()
 
 void tray::update()
 {
-    QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(nullptr, "Refresh", "Generate error?", QMessageBox::Yes | QMessageBox::No);
-    bool ok = (reply != QMessageBox::Yes);
-    switcher_->set_result(ok);
+    //QMessageBox::StandardButton reply;
+    //reply = QMessageBox::question(nullptr, "Refresh", "Generate error?", QMessageBox::Yes | QMessageBox::No);
+    //bool ok = (reply != QMessageBox::Yes);
+    //switcher_->set_result(ok);
 
-    QMessageBox::StandardButton reply2;
-    reply2 = QMessageBox::question(nullptr, "Refresh", "Refresh to Yes=Fastlab, No=Postwin, Abort=Unknown?", QMessageBox::Yes | QMessageBox::No | QMessageBox::Abort);
-    switcher::state ok2 = switcher::state::ERROR_;
-    if (reply2 == QMessageBox::Yes) ok2 = switcher::state::FASTLAB;
-    if (reply2 == QMessageBox::No) ok2 = switcher::state::POSTWIN;
-    if (reply2 == QMessageBox::Abort) ok2 = switcher::state::UNKNOWN;
-    switcher_->set_refresh_result(ok2);
+    //QMessageBox::StandardButton reply2;
+    //reply2 = QMessageBox::question(nullptr, "Refresh", "Refresh to Yes=Fastlab, No=Postwin, Abort=Unknown?", QMessageBox::Yes | QMessageBox::No | QMessageBox::Abort);
+    //switcher::state ok2 = switcher::state::ERROR_;
+    //if (reply2 == QMessageBox::Yes) ok2 = switcher::state::FASTLAB;
+    //if (reply2 == QMessageBox::No) ok2 = switcher::state::POSTWIN;
+    //if (reply2 == QMessageBox::Abort) ok2 = switcher::state::UNKNOWN;
+    //switcher_->set_refresh_result(ok2);
 
     {
         // pending_action_mutex_ locked

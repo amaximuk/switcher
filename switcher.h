@@ -36,6 +36,16 @@ private:
         bool error;
         QString error_message;
         QString host;
+        state state;
+
+        thread_result& operator =(const thread_result& a)
+        {
+            error = a.error;
+            error_message = a.error_message;
+            host = a.host;
+            state = a.state;
+            return *this;
+        }
     };
 
 private:
@@ -51,8 +61,6 @@ private:
 
     bool ok_;
     switcher::state ok2_;
-
-    QString last_error_;
 
     QMutex switcher_settings_mutex_;
     switcher_settings switcher_settings_;
@@ -71,10 +79,6 @@ public:
     void set_result(bool ok);
     void set_refresh_result(switcher::state ok2);
     void apply_settings(switcher_settings ss);
-    inline QString get_last_error()
-    {
-        return last_error_;
-    };
 
 private:
     thread_result switch_to_fastlab_internel();

@@ -9,6 +9,19 @@
 #define DEBUG_UPDATE_SECONDS 9
 #define DEBUG_CANCEL_SECONDS 3
 
+namespace definitions
+{
+    constexpr char* postwin_process_name = "PostWin";
+    constexpr char* postwin_required_file_name = "/home/root/PostWin/bin/PostWin";
+    constexpr char* postwin_service_name = "PostWin.service";
+    constexpr char* postwin_service_path = "/home/root/PostWin/PostWin.service";
+
+    constexpr char* fastlab_process_name = "starter";
+    constexpr char* fastlab_required_file_name = "/home/root/fastlab/starter";
+    constexpr char* fastlab_service_name = "starter.service";
+    constexpr char* fastlab_service_path = "/home/root/fastlab/firmware_sigma/services/starter.service";
+}
+
 switcher::switcher()
 {
     current_process_ = process::IDLE;
@@ -16,10 +29,6 @@ switcher::switcher()
     ok_ = true;
     ok2_ = switcher::state::UNKNOWN;
 
-    // ssh-keygen -t rsa -q -f ~/.ssh/id_rsa -N ""
-    // type c:\Users\User\.ssh\id_rsa.pub | ssh user@192.168.88.46 "cat >> .ssh/authorized_keys"
-    // ssh-keyscan -H 192.168.88.46 >> ~/.ssh/known_hosts
-    // ssh user@192.168.88.46 -o BatchMode=no -o StrictHostKeyChecking=no ls
     connect(&future_watcher_, &QFutureWatcher<void>::finished, this,  &switcher::thread_finished);
 }
 
@@ -168,6 +177,111 @@ void switcher::apply_settings(switcher_settings ss)
     }
 }
 
+bool run_ssh_command(const switcher_settings ss, const QString command, const bool ignore_command_error, QString& output)
+{
+    QString key_path = QDir::home().filePath(".ssh/" + ss.key);
+    QString user_host = QString("%1@%2").arg(ss.login, ss.host);
+    QString real_command(command);
+    if (ignore_command_error)
+        real_command += " || exit 0";
+
+    QProcess qp;
+    qp.start("ssh", QStringList() << "-i" << key_path << "-o" << "BatchMode=yes" << "-o" << "StrictHostKeyChecking=no" << user_host << real_command);
+    bool finished = qp.waitForFinished();
+    if (!finished)
+    {
+        output = "SSH process timeout";
+        qDebug() << output;
+        return false;
+    }
+    else
+    {
+        int exit_code = qp.exitCode();
+        if (exit_code == 255)
+        {
+            output = "SSH connection failed (255)";
+            qDebug() << output;
+            return false;
+        }
+        else if (exit_code != 0)
+        {
+            output = "SSH subcommand error: " + qp.readAllStandardError();
+            qDebug() << output;
+            return false;
+        }
+        else
+        {
+            output = qp.readAllStandardOutput();
+            qDebug() << output;
+            return true;
+        }
+    }
+}
+
+bool check_process(const switcher_settings ss, const QString process_name, bool& found, QString& output)
+{
+    QString command = QString("ps -C %1").arg(process_name);
+    if (!run_ssh_command(ss, command, true, output))
+    {
+        found = false;
+        return false;
+    }
+
+    QString s15 = process_name.length() > 15 ? process_name.left(15) : process_name;
+    if (output.contains(s15))
+    {
+        found = true;
+        output = "";
+    }
+    else
+    {
+        found = false;
+        output = "";
+    }
+
+    return true;
+}
+
+bool start_service(const switcher_settings ss, const QString service_name, QString& output)
+{
+    QString command = QString("systemctl start %1").arg(service_name);
+    if (!run_ssh_command(ss, command, false, output))
+        return false;
+
+    output = "";
+    return true;
+}
+
+bool stop_service(const switcher_settings ss, const QString service_name, QString& output)
+{
+    QString command = QString("systemctl stop %1").arg(service_name);
+    if (!run_ssh_command(ss, command, true, output))
+        return false;
+
+    output = "";
+    return true;
+}
+
+bool enable_service(const switcher_settings ss, const QString service_name, QString& output)
+{
+    QString command = QString("systemctl enable %1").arg(service_name);
+    if (!run_ssh_command(ss, command, false, output))
+        return false;
+
+    output = "";
+    return true;
+}
+
+bool disable_service(const switcher_settings ss, const QString service_name, QString& output)
+{
+    QString command = QString("systemctl disable %1").arg(service_name);
+    if (!run_ssh_command(ss, command, true, output))
+        return false;
+
+    output = "";
+    return true;
+}
+
 switcher::thread_result switcher::switch_to_fastlab_internel()
 {
     qDebug() << "switch_to_fastlab_internel";
@@ -182,45 +296,46 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
     }
 
     tr.host = ss.host;
+    tr.state = state::ERROR_;
 
-    QProcess qp;
-    //QStringList arguments({QString("%1@%2").arg(ss.login, ss.host), "-o BatchMode=yes", "-o StrictHostKeyChecking=no", "ls"});
-    //QStringList arguments({QString("%1@%2").arg(ss.login, ss.host), "-i c:/Users/alexander/.ssh/astra112", "ls"});
-    //qp.start("ssh", arguments);
-    //qp.start("ssh -i c:/Users/alexander/.ssh/astra112 -o BatchMode=yes -o StrictHostKeyChecking=no user@172.18.10.137 ls");
-    QString command = "ls";
-    QString key_path = QDir::home().filePath(".ssh/" + ss.key);
-    QString run_command = QString("ssh -i %1 -o BatchMode=yes -o StrictHostKeyChecking=no %2@%3 %4").arg(key_path, ss.login, ss.host, command);
-    qp.start(run_command);
-    bool finished = qp.waitForFinished();
-    int exit_code = qp.exitCode();
-    if (!finished || exit_code != 0)
+    QString output;
+    if (!stop_service(ss, definitions::postwin_service_name, output))
     {
         tr.error = true;
-        tr.error_message = "SSH error";
-        last_error_ = "SSH error";
+        tr.error_message = output;
+        return tr;
     }
-    QString output(qp.readAllStandardOutput());
-    qDebug() << output;
-    //QString output1(qp.readAllStandardError());
 
-
-    
-    // ssh user@192.168.88.46 -o BatchMode=no -o StrictHostKeyChecking=no ls
-    // ssh user@172.18.10.137 -o StrictHostKeyChecking=no ls
-    // ssh -i c:/Users/alexander/.ssh/astra112 -o BatchMode=yes -o StrictHostKeyChecking=no user@172.18.10.137 ls
-    //pingProcess.start(exec, params);
-    //pingProcess.waitForFinished(); // sets current thread to sleep and waits for pingProcess end
-    //QString output(pingProcess.readAllStandardOutput());
-    //connect(&pingProcess, SIGNAL(readyReadStandardOutput()), this, SLOT(readData()));
-
-    for (int i = 0; i < DEBUG_SWITCH_TO_FASTLAB_SECONDS; i++)
+    if (!disable_service(ss, definitions::postwin_service_name, output))
     {
-        qDebug() << "f" << i;
-        if (thread_exit_requested_)
-            break;
-        QThread::sleep(1);
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
     }
+
+    if (!enable_service(ss, definitions::fastlab_service_path, output))
+    {
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
+    }
+
+    if (!start_service(ss, definitions::fastlab_service_name, output))
+    {
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
+    }
+
+    tr.state = state::FASTLAB;
+
+    //for (int i = 0; i < DEBUG_SWITCH_TO_FASTLAB_SECONDS; i++)
+    //{
+    //    qDebug() << "f" << i;
+    //    if (thread_exit_requested_)
+    //        break;
+    //    QThread::sleep(1);
+    //}
     return tr;
 }
 
@@ -238,14 +353,46 @@ switcher::thread_result switcher::switch_to_postwin_internel()
     }
 
     tr.host = ss.host;
+    tr.state = state::ERROR_;
 
-    for (int i = 0; i < DEBUG_SWITCH_TO_POSTWIN_SECONDS; i++)
+    QString output;
+    if (!stop_service(ss, definitions::fastlab_service_name, output))
     {
-        qDebug() << "p" << i;
-        if (thread_exit_requested_)
-            break;
-        QThread::sleep(1);
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
     }
+
+    if (!disable_service(ss, definitions::fastlab_service_name, output))
+    {
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
+    }
+
+    if (!enable_service(ss, definitions::postwin_service_path, output))
+    {
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
+    }
+
+    if (!start_service(ss, definitions::postwin_service_name, output))
+    {
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
+    }
+
+    tr.state = state::POSTWIN;
+
+    //for (int i = 0; i < DEBUG_SWITCH_TO_POSTWIN_SECONDS; i++)
+    //{
+    //    qDebug() << "p" << i;
+    //    if (thread_exit_requested_)
+    //        break;
+    //    QThread::sleep(1);
+    //}
     return tr;
 }
 
@@ -263,14 +410,48 @@ switcher::thread_result switcher::update_internel()
     }
 
     tr.host = ss.host;
+    tr.state = state::ERROR_;
 
-    for (int i = 0; i < DEBUG_UPDATE_SECONDS; i++)
+    QString output;
+    bool found_fastlab;
+    if (!check_process(ss, definitions::fastlab_process_name, found_fastlab, output))
     {
-        qDebug() << "u" << i;
-        if (thread_exit_requested_)
-            break;
-        QThread::sleep(1);
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
     }
+
+    bool found_postwin;
+    if (!check_process(ss, definitions::postwin_process_name, found_postwin, output))
+    {
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
+    }
+
+    if (found_fastlab && !found_postwin)
+    {
+        tr.state = state::FASTLAB;
+        return tr;
+    }
+    else if (!found_fastlab && found_postwin)
+    {
+        tr.state = state::POSTWIN;
+        return tr;
+    }
+    else
+    {
+        tr.state = state::UNKNOWN;
+        return tr;
+    }
+
+    //for (int i = 0; i < DEBUG_UPDATE_SECONDS; i++)
+    //{
+    //    qDebug() << "u" << i;
+    //    if (thread_exit_requested_)
+    //        break;
+    //    QThread::sleep(1);
+    //}
     return tr;
 }
 
@@ -288,14 +469,16 @@ switcher::thread_result switcher::cancel_internel()
     }
 
     tr.host = ss.host;
+    tr.state = state::ERROR_;
 
-    for (int i = 0; i < DEBUG_CANCEL_SECONDS; i++)
-    {
-        qDebug() << "c" << i;
-        //if (thread_exit_requested_)
-        //    break;
-        QThread::sleep(1);
-    }
+
+    tr.state = state::UNKNOWN;
+
+    //for (int i = 0; i < DEBUG_CANCEL_SECONDS; i++)
+    //{
+    //    qDebug() << "c" << i;
+    //    QThread::sleep(1);
+    //}
     return tr;
 }
 
@@ -356,24 +539,44 @@ void switcher::thread_finished()
         }
 
         // Emit state changed
-        switch (ps)
+        QString state;
+        switch (result.state)
         {
-        case process::IDLE:
+        case state::UNKNOWN:
+            state = "Unknown";
             break;
-        case process::SWITCHING_TO_FASTLAB:
-            emit on_state_changed(state::FASTLAB, result.host, "Fastlab");
+        case state::FASTLAB:
+            state = "Fastlab";
             break;
-        case process::SWITCHING_TO_POSTWIN:
-            emit on_state_changed(state::POSTWIN, result.host, "Postwin");
+        case state::POSTWIN:
+            state = "Postwin";
             break;
-        case process::UPDATING:
-            emit on_state_changed(ok2_, result.host, "");
-            break;
-        case process::CANCELING:
-            emit on_state_changed(state::UNKNOWN, result.host, "Unknown");
+        case state::ERROR_:
+            state = "Error";
             break;
         default:
+            state = "Default";
             break;
         }
+
+        emit on_state_changed(result.state, result.host, state);
+        //switch (ps)
+        //{
+        //case process::IDLE:
+        //    break;
+        //case process::SWITCHING_TO_FASTLAB:
+        //    emit on_state_changed(state::FASTLAB, result.host, "Fastlab");
+        //    break;
+        //case process::SWITCHING_TO_POSTWIN:
+        //    emit on_state_changed(state::POSTWIN, result.host, "Postwin");
+        //    break;
+        //case process::UPDATING:
+        //    break;
+        //case process::CANCELING:
+        //    emit on_state_changed(state::UNKNOWN, result.host, "Unknown");
+        //    break;
+        //default:
+        //    break;
+        //}
     }
 }
