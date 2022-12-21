@@ -22,3 +22,6 @@ add_executable(switcher ${PROJ_HDRS} ${PROJ_SRCS} ${PROJ_RES} ${PROJ_UI})
 
 # target_link_libraries(switcher Qt5::Core Qt5::Gui Qt5::Widgets ${CONAN_LIBS})
 target_link_libraries(switcher Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_options(switcher PRIVATE $<$<CONFIG:Debug>:/SUBSYSTEM:CONSOLE>)
+target_link_options(switcher PRIVATE $<$<CONFIG:Release>:/SUBSYSTEM:WINDOWS>)
+target_link_options(switcher PRIVATE $<$<CONFIG:Release>:/ENTRY:mainCRTStartup>)

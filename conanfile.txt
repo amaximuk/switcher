@@ -1,6 +1,0 @@
-[requires]
-# You may have multiple lines like the one below, if you have many dependencies.
-libssh2/1.10.0
-
-[generators]
-cmake

@@ -20,6 +20,9 @@ namespace definitions
     constexpr char* fastlab_required_file_name = "/home/root/fastlab/starter";
     constexpr char* fastlab_service_name = "starter.service";
     constexpr char* fastlab_service_path = "/home/root/fastlab/firmware_sigma/services/starter.service";
+
+    constexpr int max_retry_count = 6;
+    constexpr int retry_timeout_sec = 10;
 }
 
 switcher::switcher()
@@ -177,7 +180,48 @@ void switcher::apply_settings(switcher_settings ss)
     }
 }
 
-bool run_ssh_command(const switcher_settings ss, const QString command, const bool ignore_command_error, QString& output)
+//bool run_ssh_command_no_wait(const switcher_settings ss, const QString command, const bool ignore_command_error, QString& output)
+//{
+//    QString key_path = QDir::home().filePath(".ssh/" + ss.key);
+//    QString user_host = QString("%1@%2").arg(ss.login, ss.host);
+//    QString real_command(command);
+//    if (ignore_command_error)
+//        real_command += " || exit 0";
+//
+//    QProcess qp;
+//    qp.start("ssh", QStringList() << "-i" << key_path << "-o" << "BatchMode=yes" << "-o" << "StrictHostKeyChecking=no" << user_host << real_command);
+//    //qp.start("ssh", QStringList() << "-i" << key_path << "-o" << "BatchMode=yes" << "-o" << "StrictHostKeyChecking=no" <<
+//    //    "-o" << "ServerAliveInterval=5" << "-o" << "ServerAliveCountMax=1" << user_host << real_command);
+//    bool finished = qp.waitForFinished(5000);
+//    if (!finished)
+//    {
+//        return true;
+//    }
+//    else
+//    {
+//        int exit_code = qp.exitCode();
+//        if (exit_code == 255)
+//        {
+//            output = "SSH connection failed (255)";
+//            qDebug() << output;
+//            return false;
+//        }
+//        else if (exit_code != 0)
+//        {
+//            output = "SSH subcommand error: " + qp.readAllStandardError();
+//            qDebug() << output;
+//            return false;
+//        }
+//        else
+//        {
+//            output = qp.readAllStandardOutput();
+//            qDebug() << output;
+//            return true;
+//        }
+//    }
+//}
+
+bool run_ssh_command(const switcher_settings ss, const QString command, const bool ignore_command_error, const int timeout_msec, const bool ignore_timeout_error, QString& output)
 {
     QString key_path = QDir::home().filePath(".ssh/" + ss.key);
     QString user_host = QString("%1@%2").arg(ss.login, ss.host);
@@ -187,12 +231,21 @@ bool run_ssh_command(const switcher_settings ss, const QString command, const bo
 
     QProcess qp;
     qp.start("ssh", QStringList() << "-i" << key_path << "-o" << "BatchMode=yes" << "-o" << "StrictHostKeyChecking=no" << user_host << real_command);
-    bool finished = qp.waitForFinished();
+    bool finished = qp.waitForFinished(timeout_msec);
     if (!finished)
     {
-        output = "SSH process timeout";
-        qDebug() << output;
-        return false;
+        if (ignore_timeout_error)
+        {
+            output = "";
+            return true;
+        }
+        else
+        {
+            output = "SSH process timeout";
+            qDebug() << output;
+            return false;
+        }
+        qp.terminate();
     }
     else
     {
@@ -212,7 +265,8 @@ bool run_ssh_command(const switcher_settings ss, const QString command, const bo
         else
         {
             output = qp.readAllStandardOutput();
-            qDebug() << output;
+            if (output.length() > 0)
+                qDebug() << output;
             return true;
         }
     }
@@ -221,7 +275,7 @@ bool run_ssh_command(const switcher_settings ss, const QString command, const bo
 bool check_process(const switcher_settings ss, const QString process_name, bool& found, QString& output)
 {
     QString command = QString("ps -C %1").arg(process_name);
-    if (!run_ssh_command(ss, command, true, output))
+    if (!run_ssh_command(ss, command, true, 10000, false, output))
     {
         found = false;
         return false;
@@ -245,7 +299,7 @@ bool check_process(const switcher_settings ss, const QString process_name, bool&
 bool start_service(const switcher_settings ss, const QString service_name, QString& output)
 {
     QString command = QString("systemctl start %1").arg(service_name);
-    if (!run_ssh_command(ss, command, false, output))
+    if (!run_ssh_command(ss, command, false, 10000, false, output))
         return false;
 
     output = "";
@@ -255,7 +309,7 @@ bool start_service(const switcher_settings ss, const QString service_name, QStri
 bool stop_service(const switcher_settings ss, const QString service_name, QString& output)
 {
     QString command = QString("systemctl stop %1").arg(service_name);
-    if (!run_ssh_command(ss, command, true, output))
+    if (!run_ssh_command(ss, command, true, 10000, false, output))
         return false;
 
     output = "";
@@ -265,7 +319,7 @@ bool stop_service(const switcher_settings ss, const QString service_name, QStrin
 bool enable_service(const switcher_settings ss, const QString service_name, QString& output)
 {
     QString command = QString("systemctl enable %1").arg(service_name);
-    if (!run_ssh_command(ss, command, false, output))
+    if (!run_ssh_command(ss, command, false, 10000, false, output))
         return false;
 
     output = "";
@@ -275,12 +329,34 @@ bool enable_service(const switcher_settings ss, const QString service_name, QStr
 bool disable_service(const switcher_settings ss, const QString service_name, QString& output)
 {
     QString command = QString("systemctl disable %1").arg(service_name);
-    if (!run_ssh_command(ss, command, true, output))
+    if (!run_ssh_command(ss, command, true, 10000, false, output))
         return false;
 
     output = "";
     return true;
 }
+
+bool sync(const switcher_settings ss, QString& output)
+{
+    QString command = QString("sync");
+    if (!run_ssh_command(ss, command, true, 10000, false, output))
+        return false;
+
+    output = "";
+    return true;
+}
+
+bool reboot(const switcher_settings ss, QString& output)
+{
+    QString command = QString("KSUtility -b b");
+    if (!run_ssh_command(ss, command, true, 5000, true, output))
+        return false;
+
+    output = "";
+    return true;
+}
+
+#define CANCEL_POINT if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
 switcher::thread_result switcher::switch_to_fastlab_internel()
 {
@@ -306,12 +382,16 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
         return tr;
     }
 
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+
     if (!disable_service(ss, definitions::postwin_service_name, output))
     {
         tr.error = true;
         tr.error_message = output;
         return tr;
     }
+
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     if (!enable_service(ss, definitions::fastlab_service_path, output))
     {
@@ -320,7 +400,47 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
         return tr;
     }
 
-    if (!start_service(ss, definitions::fastlab_service_name, output))
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+
+    if (!sync(ss, output))
+    {
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
+    }
+
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+
+    if (!reboot(ss, output))
+    {
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
+    }
+
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+
+    int retry_count = 0;
+    bool found_fastlab;
+    while (retry_count < definitions::max_retry_count)
+    {
+        if (!check_process(ss, definitions::fastlab_process_name, found_fastlab, output))
+        {
+            std::this_thread::sleep_for(std::chrono::seconds(definitions::retry_timeout_sec));
+            retry_count++;
+        }
+        else
+        {
+            break;
+        }
+
+        if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    }
+    if (retry_count >= definitions::max_retry_count)
     {
         tr.error = true;
         tr.error_message = output;
@@ -363,12 +483,16 @@ switcher::thread_result switcher::switch_to_postwin_internel()
         return tr;
     }
 
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+
     if (!disable_service(ss, definitions::fastlab_service_name, output))
     {
         tr.error = true;
         tr.error_message = output;
         return tr;
     }
+
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     if (!enable_service(ss, definitions::postwin_service_path, output))
     {
@@ -377,7 +501,47 @@ switcher::thread_result switcher::switch_to_postwin_internel()
         return tr;
     }
 
-    if (!start_service(ss, definitions::postwin_service_name, output))
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+
+    if (!sync(ss, output))
+    {
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
+    }
+
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+
+    if (!reboot(ss, output))
+    {
+        tr.error = true;
+        tr.error_message = output;
+        return tr;
+    }
+
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+
+    int retry_count = 0;
+    bool found_fastlab;
+    while (retry_count < definitions::max_retry_count)
+    {
+        if (!check_process(ss, definitions::postwin_process_name, found_fastlab, output))
+        {
+            std::this_thread::sleep_for(std::chrono::seconds(definitions::retry_timeout_sec));
+            retry_count++;
+        }
+        else
+        {
+            break;
+        }
+
+        if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    }
+    if (retry_count >= definitions::max_retry_count)
     {
         tr.error = true;
         tr.error_message = output;
@@ -420,6 +584,8 @@ switcher::thread_result switcher::update_internel()
         tr.error_message = output;
         return tr;
     }
+
+    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     bool found_postwin;
     if (!check_process(ss, definitions::postwin_process_name, found_postwin, output))
