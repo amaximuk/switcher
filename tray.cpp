@@ -23,8 +23,8 @@ tray::tray(run_settings rs, QObject *parent) : QObject(parent)
 {
     run_settings_ = rs;
 
-    pending_action_ = action::NONE;
-    state_ = switcher::state::UNKNOWN;
+    pending_action_ = ACTION::NONE;
+    state_ = switcher::STATE::UNKNOWN;
 
     ini_file_name_ = "switcher";
     if (run_settings_.instance_name_is_set)
@@ -102,7 +102,7 @@ tray::tray(run_settings rs, QObject *parent) : QObject(parent)
     update_time_ = QDateTime::currentSecsSinceEpoch();
 
     gif_cancel_->start();
-    pending_action_ = action::UPDATE;
+    pending_action_ = ACTION::UPDATE;
     switcher_->cancel_async();
 }
 
@@ -135,10 +135,10 @@ void tray::timerEvent(QTimerEvent* event)
             // pending_action_mutex_ locked
             QMutexLocker locker(&pending_action_mutex_);
 
-            if ((state_ == switcher::state::ERROR_ && (ct - ut > ts.error_update_interval_sec)) ||
-                (state_ == switcher::state::UNKNOWN && (ct - ut > ts.normal_update_interval_sec)) ||
-                (state_ == switcher::state::FASTLAB && (ct - ut > ts.normal_update_interval_sec)) ||
-                (state_ == switcher::state::POSTWIN && (ct - ut > ts.normal_update_interval_sec)))
+            if ((state_ == switcher::STATE::ERROR_ && (ct - ut > ts.error_update_interval_sec)) ||
+                (state_ == switcher::STATE::UNKNOWN && (ct - ut > ts.normal_update_interval_sec)) ||
+                (state_ == switcher::STATE::FASTLAB && (ct - ut > ts.normal_update_interval_sec)) ||
+                (state_ == switcher::STATE::POSTWIN && (ct - ut > ts.normal_update_interval_sec)))
             {
                 qDebug() << "timerEvent, time elapced = " << (ct - ut);
                 gif_switch_->stop();
@@ -146,7 +146,7 @@ void tray::timerEvent(QTimerEvent* event)
                 gif_cancel_->start();
 
                 updated = true;
-                pending_action_ = action::UPDATE;
+                pending_action_ = ACTION::UPDATE;
                 switcher_->cancel_async();
             }
         }
@@ -181,7 +181,7 @@ void tray::fastlab()
         gif_update_->stop();
         gif_cancel_->start();
 
-        pending_action_ = action::SWITCH_TO_FASTLAB;
+        pending_action_ = ACTION::SWITCH_TO_FASTLAB;
         switcher_->cancel_async();
     }
 }
@@ -201,7 +201,7 @@ void tray::postwin()
         gif_update_->stop();
         gif_cancel_->start();
 
-        pending_action_ = action::SWITCH_TO_POSTWIN;
+        pending_action_ = ACTION::SWITCH_TO_POSTWIN;
         switcher_->cancel_async();
     }
 }
@@ -215,10 +215,10 @@ void tray::update()
 
     //QMessageBox::StandardButton reply2;
     //reply2 = QMessageBox::question(nullptr, "Refresh", "Refresh to Yes=Fastlab, No=Postwin, Abort=Unknown?", QMessageBox::Yes | QMessageBox::No | QMessageBox::Abort);
-    //switcher::state ok2 = switcher::state::ERROR_;
-    //if (reply2 == QMessageBox::Yes) ok2 = switcher::state::FASTLAB;
-    //if (reply2 == QMessageBox::No) ok2 = switcher::state::POSTWIN;
-    //if (reply2 == QMessageBox::Abort) ok2 = switcher::state::UNKNOWN;
+    //switcher::state ok2 = switcher::STATE::ERROR_;
+    //if (reply2 == QMessageBox::Yes) ok2 = switcher::STATE::FASTLAB;
+    //if (reply2 == QMessageBox::No) ok2 = switcher::STATE::POSTWIN;
+    //if (reply2 == QMessageBox::Abort) ok2 = switcher::STATE::UNKNOWN;
     //switcher_->set_refresh_result(ok2);
 
     {
@@ -229,7 +229,7 @@ void tray::update()
         gif_update_->stop();
         gif_cancel_->start();
 
-        pending_action_ = action::UPDATE;
+        pending_action_ = ACTION::UPDATE;
         switcher_->cancel_async();
     }
 }
@@ -289,7 +289,7 @@ void tray::settings()
             gif_update_->stop();
             gif_cancel_->start();
 
-            pending_action_ = action::UPDATE;
+            pending_action_ = ACTION::UPDATE;
             switcher_->cancel_async();
         }
     }
@@ -311,7 +311,7 @@ void tray::quit()
         gif_update_->stop();
         gif_cancel_->start();
 
-        pending_action_ = action::QUIT;
+        pending_action_ = ACTION::QUIT;
         switcher_->cancel_async();
     }
 }
@@ -331,7 +331,7 @@ void tray::updateIconCancel()
     tray_icon_->setIcon(gif_cancel_->currentPixmap());
 }
 
-void tray::switcher_state_changed(switcher::state st, QString host, QString message)
+void tray::switcher_state_changed(switcher::STATE state, QString host, QString message)
 {
     fastlab_action_->setEnabled(true);
     postwin_action_->setEnabled(true);
@@ -344,28 +344,28 @@ void tray::switcher_state_changed(switcher::state st, QString host, QString mess
         // pending_action_mutex_ locked
         QMutexLocker locker(&pending_action_mutex_);
 
-        if (st == switcher::state::ERROR_ && pending_action_ != tray::action::QUIT)
-            pending_action_ = action::NONE;
+        if (state == switcher::STATE::ERROR_ && pending_action_ != tray::ACTION::QUIT)
+            pending_action_ = ACTION::NONE;
 
-        if (pending_action_ != action::NONE)
+        if (pending_action_ != ACTION::NONE)
         {
             switch (pending_action_)
             {
-            case tray::action::NONE:
+            case tray::ACTION::NONE:
                 break;
-            case tray::action::SWITCH_TO_FASTLAB:
+            case tray::ACTION::SWITCH_TO_FASTLAB:
                 gif_switch_->start();
                 switcher_->switch_to_fastlab_async();
                 break;
-            case tray::action::SWITCH_TO_POSTWIN:
+            case tray::ACTION::SWITCH_TO_POSTWIN:
                 gif_switch_->start();
                 switcher_->switch_to_postwin_async();
                 break;
-            case tray::action::UPDATE:
+            case tray::ACTION::UPDATE:
                 gif_update_->start();
                 switcher_->update_async();
                 break;
-            case tray::action::QUIT:
+            case tray::ACTION::QUIT:
                 tray_icon_->hide();
                 QCoreApplication::quit();
                 break;
@@ -373,28 +373,28 @@ void tray::switcher_state_changed(switcher::state st, QString host, QString mess
                 break;
             }
 
-            pending_action_ = action::NONE;
+            pending_action_ = ACTION::NONE;
         }
         else
         {
-            if (st == switcher::state::FASTLAB)
+            if (state == switcher::STATE::FASTLAB)
             {
                 tray_icon_->setIcon(QIcon(":/images/fastlab.png"));
             }
-            else if (st == switcher::state::POSTWIN)
+            else if (state == switcher::STATE::POSTWIN)
             {
                 tray_icon_->setIcon(QIcon(":/images/postwin.png"));
             }
-            else if (st == switcher::state::UNKNOWN)
+            else if (state == switcher::STATE::UNKNOWN)
             {
                 tray_icon_->setIcon(QIcon(":/images/unknown.png"));
             }
-            else if (st == switcher::state::ERROR_)
+            else if (state == switcher::STATE::ERROR_)
             {
                 tray_icon_->setIcon(QIcon(":/images/error.png"));
             }
             tray_icon_->setToolTip(QString("%1\n%2").arg(host, message));
-            state_ = st;
+            state_ = state;
         }
     }
 

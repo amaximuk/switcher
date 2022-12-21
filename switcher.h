@@ -13,7 +13,7 @@ class switcher : public QObject
     Q_OBJECT
 
 public:
-    enum class state
+    enum class STATE
     {
         UNKNOWN,
         FASTLAB,
@@ -22,7 +22,7 @@ public:
     };
 
 private:
-    enum class process
+    enum class PROCESS
     {
         IDLE,
         SWITCHING_TO_FASTLAB,
@@ -36,7 +36,7 @@ private:
         bool error;
         QString error_message;
         QString host;
-        state state;
+        STATE state;
 
         thread_result& operator =(const thread_result& a)
         {
@@ -55,12 +55,9 @@ private:
     QFutureWatcher<void> future_watcher_;
 
     QMutex current_process_mutex_;
-    process current_process_;
+    PROCESS current_process_;
 
     QAtomicInt cancelled_;
-
-    bool ok_;
-    switcher::state ok2_;
 
     QMutex switcher_settings_mutex_;
     switcher_settings switcher_settings_;
@@ -69,15 +66,13 @@ public:
     switcher();
 
 signals:
-    void on_state_changed(state st, QString host, QString message);
+    void on_state_changed(STATE state, QString host, QString message);
 
 public:
     void switch_to_fastlab_async();
     void switch_to_postwin_async();
     void update_async();
     void cancel_async();
-    void set_result(bool ok);
-    void set_refresh_result(switcher::state ok2);
     void apply_settings(switcher_settings ss);
 
 private:
@@ -86,7 +81,6 @@ private:
     thread_result update_internel();
     thread_result cancel_internel();
     void thread_finished();
-
 };
 
 #endif // SWITCHER_H

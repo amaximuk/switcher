@@ -18,7 +18,7 @@ class tray : public QObject
     Q_OBJECT
 
 private:
-    enum class action
+    enum class ACTION
     {
         NONE,
         SWITCH_TO_FASTLAB,
@@ -52,8 +52,8 @@ private:
     QScopedPointer<switcher> switcher_;
 
     QMutex pending_action_mutex_;
-    action pending_action_;
-    switcher::state state_;
+    ACTION pending_action_;
+    switcher::STATE state_;
 
     QMutex update_time_mutex_;
     quint64 update_time_;
@@ -80,7 +80,7 @@ private:
     void updateIconCancel();
 
 private slots:
-    void switcher_state_changed(switcher::state st, QString host, QString message);
+    void switcher_state_changed(switcher::STATE state, QString host, QString message);
     void tray_icon_activated(QSystemTrayIcon::ActivationReason ar);
 
 signals:

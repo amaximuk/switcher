@@ -27,10 +27,8 @@ namespace definitions
 
 switcher::switcher()
 {
-    current_process_ = process::IDLE;
+    current_process_ = PROCESS::IDLE;
     thread_exit_requested_ = false;
-    ok_ = true;
-    ok2_ = switcher::state::UNKNOWN;
 
     connect(&future_watcher_, &QFutureWatcher<void>::finished, this,  &switcher::thread_finished);
 }
@@ -44,25 +42,25 @@ void switcher::switch_to_fastlab_async()
         // current_process_mutex_ locked
         QMutexLocker locker(&current_process_mutex_);
 
-        if (current_process_ == process::IDLE)
+        if (current_process_ == PROCESS::IDLE)
         {
             qDebug() << "was IDLE, SWITCHING_TO_FASTLAB";
-            current_process_ = process::SWITCHING_TO_FASTLAB;
+            current_process_ = PROCESS::SWITCHING_TO_FASTLAB;
             future_ = QtConcurrent::run(this, &switcher::switch_to_fastlab_internel);
             future_watcher_.setFuture(future_);
         }
-        else if (current_process_ == process::SWITCHING_TO_FASTLAB)
+        else if (current_process_ == PROCESS::SWITCHING_TO_FASTLAB)
         {
             qDebug() << "nothing to do, already SWITCHING_TO_FASTLAB";
         }
-        else if (current_process_ == process::CANCELING)
+        else if (current_process_ == PROCESS::CANCELING)
         {
             qDebug() << "nothing to do, already CANCELING";
         }
         else
         {
             qDebug() << "something wrong, CANCELING";
-            current_process_ = process::CANCELING;
+            current_process_ = PROCESS::CANCELING;
             thread_exit_requested_ = true;
         }
     }
@@ -77,25 +75,25 @@ void switcher::switch_to_postwin_async()
         // current_process_mutex_ locked
         QMutexLocker locker(&current_process_mutex_);
 
-        if (current_process_ == process::IDLE)
+        if (current_process_ == PROCESS::IDLE)
         {
             qDebug() << "was IDLE, SWITCHING_TO_POSTWIN";
-            current_process_ = process::SWITCHING_TO_POSTWIN;
+            current_process_ = PROCESS::SWITCHING_TO_POSTWIN;
             future_ = QtConcurrent::run(this, &switcher::switch_to_postwin_internel);
             future_watcher_.setFuture(future_);
         }
-        else if (current_process_ == process::SWITCHING_TO_POSTWIN)
+        else if (current_process_ == PROCESS::SWITCHING_TO_POSTWIN)
         {
             qDebug() << "nothing to do, already SWITCHING_TO_POSTWIN";
         }
-        else if (current_process_ == process::CANCELING)
+        else if (current_process_ == PROCESS::CANCELING)
         {
             qDebug() << "nothing to do, already CANCELING";
         }
         else
         {
             qDebug() << "something wrong, CANCELING";
-            current_process_ = process::CANCELING;
+            current_process_ = PROCESS::CANCELING;
             thread_exit_requested_ = true;
         }
     }
@@ -110,25 +108,25 @@ void switcher::update_async()
         // current_process_mutex_ locked
         QMutexLocker locker(&current_process_mutex_);
 
-        if (current_process_ == process::IDLE)
+        if (current_process_ == PROCESS::IDLE)
         {
             qDebug() << "was IDLE, UPDATING";
-            current_process_ = process::UPDATING;
+            current_process_ = PROCESS::UPDATING;
             future_ = QtConcurrent::run(this, &switcher::update_internel);
             future_watcher_.setFuture(future_);
         }
-        else if (current_process_ == process::UPDATING)
+        else if (current_process_ == PROCESS::UPDATING)
         {
             qDebug() << "nothing to do, already UPDATING";
         }
-        else if (current_process_ == process::CANCELING)
+        else if (current_process_ == PROCESS::CANCELING)
         {
             qDebug() << "nothing to do, already CANCELING";
         }
         else
         {
             qDebug() << "something wrong, CANCELING";
-            current_process_ = process::CANCELING;
+            current_process_ = PROCESS::CANCELING;
             thread_exit_requested_ = true;
         }
     }
@@ -143,30 +141,20 @@ void switcher::cancel_async()
         // current_process_mutex_ locked
         QMutexLocker locker(&current_process_mutex_);
 
-        if (current_process_ == process::IDLE)
+        if (current_process_ == PROCESS::IDLE)
         {
             qDebug() << "create dummy thread, already IDLE";
-            current_process_ = process::CANCELING;
+            current_process_ = PROCESS::CANCELING;
             future_ = QtConcurrent::run(this, &switcher::cancel_internel);
             future_watcher_.setFuture(future_);
         }
         else
         {
             qDebug() << "some process is running, CANCELING";
-            current_process_ = process::CANCELING;
+            current_process_ = PROCESS::CANCELING;
             thread_exit_requested_ = true;
         }
     }
-}
-
-void switcher::set_result(bool ok)
-{
-    ok_ = ok;
-}
-
-void switcher::set_refresh_result(switcher::state ok2)
-{
-    ok2_ = ok2;
 }
 
 void switcher::apply_settings(switcher_settings ss)
@@ -179,47 +167,6 @@ void switcher::apply_settings(switcher_settings ss)
         switcher_settings_ = ss;
     }
 }
-
-//bool run_ssh_command_no_wait(const switcher_settings ss, const QString command, const bool ignore_command_error, QString& output)
-//{
-//    QString key_path = QDir::home().filePath(".ssh/" + ss.key);
-//    QString user_host = QString("%1@%2").arg(ss.login, ss.host);
-//    QString real_command(command);
-//    if (ignore_command_error)
-//        real_command += " || exit 0";
-//
-//    QProcess qp;
-//    qp.start("ssh", QStringList() << "-i" << key_path << "-o" << "BatchMode=yes" << "-o" << "StrictHostKeyChecking=no" << user_host << real_command);
-//    //qp.start("ssh", QStringList() << "-i" << key_path << "-o" << "BatchMode=yes" << "-o" << "StrictHostKeyChecking=no" <<
-//    //    "-o" << "ServerAliveInterval=5" << "-o" << "ServerAliveCountMax=1" << user_host << real_command);
-//    bool finished = qp.waitForFinished(5000);
-//    if (!finished)
-//    {
-//        return true;
-//    }
-//    else
-//    {
-//        int exit_code = qp.exitCode();
-//        if (exit_code == 255)
-//        {
-//            output = "SSH connection failed (255)";
-//            qDebug() << output;
-//            return false;
-//        }
-//        else if (exit_code != 0)
-//        {
-//            output = "SSH subcommand error: " + qp.readAllStandardError();
-//            qDebug() << output;
-//            return false;
-//        }
-//        else
-//        {
-//            output = qp.readAllStandardOutput();
-//            qDebug() << output;
-//            return true;
-//        }
-//    }
-//}
 
 bool run_ssh_command(const switcher_settings ss, const QString command, const bool ignore_command_error, const int timeout_msec, const bool ignore_timeout_error, QString& output)
 {
@@ -356,7 +303,7 @@ bool reboot(const switcher_settings ss, QString& output)
     return true;
 }
 
-#define CANCEL_POINT if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+#define CANCEL_POINT if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
 switcher::thread_result switcher::switch_to_fastlab_internel()
 {
@@ -372,7 +319,7 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
     }
 
     tr.host = ss.host;
-    tr.state = state::ERROR_;
+    tr.state = STATE::ERROR_;
 
     QString output;
     if (!stop_service(ss, definitions::postwin_service_name, output))
@@ -382,7 +329,7 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     if (!disable_service(ss, definitions::postwin_service_name, output))
     {
@@ -391,7 +338,7 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     if (!enable_service(ss, definitions::fastlab_service_path, output))
     {
@@ -400,7 +347,7 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     if (!sync(ss, output))
     {
@@ -409,11 +356,11 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     if (!reboot(ss, output))
     {
@@ -422,7 +369,7 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     int retry_count = 0;
     bool found_fastlab;
@@ -438,7 +385,7 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
             break;
         }
 
-        if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+        if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
     }
     if (retry_count >= definitions::max_retry_count)
     {
@@ -447,15 +394,8 @@ switcher::thread_result switcher::switch_to_fastlab_internel()
         return tr;
     }
 
-    tr.state = state::FASTLAB;
+    tr.state = STATE::FASTLAB;
 
-    //for (int i = 0; i < DEBUG_SWITCH_TO_FASTLAB_SECONDS; i++)
-    //{
-    //    qDebug() << "f" << i;
-    //    if (thread_exit_requested_)
-    //        break;
-    //    QThread::sleep(1);
-    //}
     return tr;
 }
 
@@ -473,7 +413,7 @@ switcher::thread_result switcher::switch_to_postwin_internel()
     }
 
     tr.host = ss.host;
-    tr.state = state::ERROR_;
+    tr.state = STATE::ERROR_;
 
     QString output;
     if (!stop_service(ss, definitions::fastlab_service_name, output))
@@ -483,7 +423,7 @@ switcher::thread_result switcher::switch_to_postwin_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     if (!disable_service(ss, definitions::fastlab_service_name, output))
     {
@@ -492,7 +432,7 @@ switcher::thread_result switcher::switch_to_postwin_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     if (!enable_service(ss, definitions::postwin_service_path, output))
     {
@@ -501,7 +441,7 @@ switcher::thread_result switcher::switch_to_postwin_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     if (!sync(ss, output))
     {
@@ -510,11 +450,11 @@ switcher::thread_result switcher::switch_to_postwin_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     if (!reboot(ss, output))
     {
@@ -523,7 +463,7 @@ switcher::thread_result switcher::switch_to_postwin_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     int retry_count = 0;
     bool found_fastlab;
@@ -539,7 +479,7 @@ switcher::thread_result switcher::switch_to_postwin_internel()
             break;
         }
 
-        if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+        if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
     }
     if (retry_count >= definitions::max_retry_count)
     {
@@ -548,15 +488,8 @@ switcher::thread_result switcher::switch_to_postwin_internel()
         return tr;
     }
 
-    tr.state = state::POSTWIN;
+    tr.state = STATE::POSTWIN;
 
-    //for (int i = 0; i < DEBUG_SWITCH_TO_POSTWIN_SECONDS; i++)
-    //{
-    //    qDebug() << "p" << i;
-    //    if (thread_exit_requested_)
-    //        break;
-    //    QThread::sleep(1);
-    //}
     return tr;
 }
 
@@ -574,7 +507,7 @@ switcher::thread_result switcher::update_internel()
     }
 
     tr.host = ss.host;
-    tr.state = state::ERROR_;
+    tr.state = STATE::ERROR_;
 
     QString output;
     bool found_fastlab;
@@ -585,7 +518,7 @@ switcher::thread_result switcher::update_internel()
         return tr;
     }
 
-    if (thread_exit_requested_) { tr.state = state::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
+    if (thread_exit_requested_) { tr.state = STATE::UNKNOWN; tr.error_message = "Cancelled"; return tr; }
 
     bool found_postwin;
     if (!check_process(ss, definitions::postwin_process_name, found_postwin, output))
@@ -597,27 +530,20 @@ switcher::thread_result switcher::update_internel()
 
     if (found_fastlab && !found_postwin)
     {
-        tr.state = state::FASTLAB;
+        tr.state = STATE::FASTLAB;
         return tr;
     }
     else if (!found_fastlab && found_postwin)
     {
-        tr.state = state::POSTWIN;
+        tr.state = STATE::POSTWIN;
         return tr;
     }
     else
     {
-        tr.state = state::UNKNOWN;
+        tr.state = STATE::UNKNOWN;
         return tr;
     }
 
-    //for (int i = 0; i < DEBUG_UPDATE_SECONDS; i++)
-    //{
-    //    qDebug() << "u" << i;
-    //    if (thread_exit_requested_)
-    //        break;
-    //    QThread::sleep(1);
-    //}
     return tr;
 }
 
@@ -635,16 +561,8 @@ switcher::thread_result switcher::cancel_internel()
     }
 
     tr.host = ss.host;
-    tr.state = state::ERROR_;
+    tr.state = STATE::UNKNOWN;
 
-
-    tr.state = state::UNKNOWN;
-
-    //for (int i = 0; i < DEBUG_CANCEL_SECONDS; i++)
-    //{
-    //    qDebug() << "c" << i;
-    //    QThread::sleep(1);
-    //}
     return tr;
 }
 
@@ -660,16 +578,16 @@ void switcher::thread_finished()
             QMutexLocker locker(&current_process_mutex_);
 
             qDebug() << "thread finished with error";
-            current_process_ = process::IDLE;
+            current_process_ = PROCESS::IDLE;
             thread_exit_requested_ = false;
         }
 
         // Emit state changed
-        emit on_state_changed(state::ERROR_, result.host, result.error_message);
+        emit on_state_changed(STATE::ERROR_, result.host, result.error_message);
     }
     else
     {
-        process ps = process::IDLE;
+        PROCESS ps = PROCESS::IDLE;
         {
             // current_process_mutex_ locked
             QMutexLocker locker(&current_process_mutex_);
@@ -677,26 +595,26 @@ void switcher::thread_finished()
             ps = current_process_;
             switch (ps)
             {
-            case process::IDLE:
+            case PROCESS::IDLE:
                 break;
-            case process::SWITCHING_TO_FASTLAB:
+            case PROCESS::SWITCHING_TO_FASTLAB:
                 qDebug() << "SWITCHING_TO_FASTLAB";
-                current_process_ = process::IDLE;
+                current_process_ = PROCESS::IDLE;
                 thread_exit_requested_ = false;
                 break;
-            case process::SWITCHING_TO_POSTWIN:
+            case PROCESS::SWITCHING_TO_POSTWIN:
                 qDebug() << "SWITCHING_TO_POSTWIN";
-                current_process_ = process::IDLE;
+                current_process_ = PROCESS::IDLE;
                 thread_exit_requested_ = false;
                 break;
-            case process::UPDATING:
+            case PROCESS::UPDATING:
                 qDebug() << "UPDATING";
-                current_process_ = process::IDLE;
+                current_process_ = PROCESS::IDLE;
                 thread_exit_requested_ = false;
                 break;
-            case process::CANCELING:
+            case PROCESS::CANCELING:
                 qDebug() << "CANCELING";
-                current_process_ = process::IDLE;
+                current_process_ = PROCESS::IDLE;
                 thread_exit_requested_ = false;
                 break;
             default:
@@ -708,16 +626,16 @@ void switcher::thread_finished()
         QString state;
         switch (result.state)
         {
-        case state::UNKNOWN:
+        case STATE::UNKNOWN:
             state = "Unknown";
             break;
-        case state::FASTLAB:
+        case STATE::FASTLAB:
             state = "Fastlab";
             break;
-        case state::POSTWIN:
+        case STATE::POSTWIN:
             state = "Postwin";
             break;
-        case state::ERROR_:
+        case STATE::ERROR_:
             state = "Error";
             break;
         default:
@@ -726,23 +644,5 @@ void switcher::thread_finished()
         }
 
         emit on_state_changed(result.state, result.host, state);
-        //switch (ps)
-        //{
-        //case process::IDLE:
-        //    break;
-        //case process::SWITCHING_TO_FASTLAB:
-        //    emit on_state_changed(state::FASTLAB, result.host, "Fastlab");
-        //    break;
-        //case process::SWITCHING_TO_POSTWIN:
-        //    emit on_state_changed(state::POSTWIN, result.host, "Postwin");
-        //    break;
-        //case process::UPDATING:
-        //    break;
-        //case process::CANCELING:
-        //    emit on_state_changed(state::UNKNOWN, result.host, "Unknown");
-        //    break;
-        //default:
-        //    break;
-        //}
     }
 }
