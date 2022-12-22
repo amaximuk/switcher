@@ -1,0 +1,9 @@
+#!/bin/bash
+
+SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+BINARY_DIR="$SCRIPT_PATH/build"
+QT5_BINARY_DIR="@Qt5_DIR@/../../.."
+
+echo $SCRIPT_PATH
+echo $BINARY_DIR
+echo $QT5_BINARY_DIR
