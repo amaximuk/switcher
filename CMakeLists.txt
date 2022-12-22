@@ -30,6 +30,11 @@ if(WIN32)
 	target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/SUBSYSTEM:CONSOLE>)
 	target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/SUBSYSTEM:WINDOWS>)
 	target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/ENTRY:mainCRTStartup>)
+	
+	configure_file(${PROJECT_SOURCE_DIR}/qtlogging.ini ${CMAKE_BINARY_DIR}/Debug/qtlogging.ini COPYONLY)
+	configure_file(${PROJECT_SOURCE_DIR}/qtlogging.ini ${CMAKE_BINARY_DIR}/Release/qtlogging.ini COPYONLY)
+else()
+	configure_file(${PROJECT_SOURCE_DIR}/qtlogging.ini ${CMAKE_BINARY_DIR}/qtlogging.ini COPYONLY)
 endif()
 
 configure_file(${PROJECT_SOURCE_DIR}/deploy_linux.sh.in ${PROJECT_SOURCE_DIR}/deploy_linux.sh @ONLY)
